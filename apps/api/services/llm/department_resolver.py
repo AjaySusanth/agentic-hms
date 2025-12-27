@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 from groq import Groq
 from dotenv import load_dotenv
 load_dotenv()
+import asyncio
 
 
 class DepartmentResolverService:
@@ -14,7 +15,7 @@ class DepartmentResolverService:
     MODEL = "openai/gpt-oss-120b"
 
     @staticmethod
-    def resolve(
+    def _resolve_sync(
         *,
         symptom_summary: str,
         age: int | None,
@@ -25,30 +26,30 @@ class DepartmentResolverService:
         department_list = ", ".join(allowed_departments)
 
         prompt = f"""
-You are a hospital triage assistant.
+            You are a hospital triage assistant.
 
-Choose ONE department from this list ONLY:
-{department_list}
+            Choose ONE department from this list ONLY:
+            {department_list}
 
-Return STRICT JSON in the following format:
+            Return STRICT JSON in the following format:
 
-{{
-  "department": "<department name>",
-  "confidence": <float between 0 and 1>,
-  "reasoning": ["short bullet point", "short bullet point"]
-}}
+            {{
+            "department": "<department name>",
+            "confidence": <float between 0 and 1>,
+            "reasoning": ["short bullet point", "short bullet point"]
+            }}
 
-Rules:
-- Do not diagnose
-- Do not invent departments
-- If age below 18, choose 'Pediatrics'
-- If unsure, lower the confidence
-- Max 3 reasoning bullets
+            Rules:
+            - Do not diagnose
+            - Do not invent departments
+            - If age below 18, choose 'Pediatrics'
+            - If unsure, lower the confidence
+            - Max 3 reasoning bullets
 
-Patient age: {age}
-Symptoms:
-{symptom_summary}
-"""
+            Patient age: {age}
+            Symptoms:
+            {symptom_summary}
+            """
 
         response = client.chat.completions.create(
             model=DepartmentResolverService.MODEL,
@@ -83,3 +84,18 @@ Symptoms:
 
         parsed["confidence"] = float(parsed["confidence"])
         return parsed
+
+
+    @staticmethod
+    async def resolve(
+        symptom_summary: str,
+        age: int | None,
+        allowed_departments: List[str],
+    ) -> Optional[Dict]:
+        # ✅ Async-safe wrapper
+        return await asyncio.to_thread(
+            DepartmentResolverService._resolve_sync,
+            symptom_summary=symptom_summary,
+            age=age,
+            allowed_departments=allowed_departments,
+        )

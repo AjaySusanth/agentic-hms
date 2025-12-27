@@ -226,7 +226,7 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
         if not raw or len(raw.strip()) < 5:
             return {"message": "Please describe your symptoms clearly."}
 
-        summary = SymptomSummarizerService.summarize(raw)
+        summary = await SymptomSummarizerService.summarize(raw)
 
         self.update_state(
             symptoms_raw=raw,
@@ -284,7 +284,7 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
             return await self.handle({})
 
         # 4️⃣ LLM-based resolution
-        result = DepartmentResolverService.resolve(
+        result = await DepartmentResolverService.resolve(
             symptom_summary=self.state.symptoms_summary,
             age=self.state.age,
             allowed_departments=dept_names,
