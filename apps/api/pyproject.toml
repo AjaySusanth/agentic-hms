@@ -1,0 +1,17 @@
+[project]
+name = "hms-api"  # Add this required field
+version = "1.0.0"
+description = "HMS Multi-Agent API"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic",
+    "groq",
+    "asyncpg",
+    "sqlalchemy"
+]
+
+[project.scripts]
+dev = "uvicorn main:app --reload"
+start = "uvicorn main:app"
