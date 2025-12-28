@@ -51,4 +51,6 @@ class RegistrationAgentState(BaseModel):
     # --- Visit ---
     doctor_id: Optional[UUID] = None
     visit_id: Optional[UUID] = None
-    token_number: Optional[int] = None
+    
+    # --- Handoff State ---
+    handoff_processed: bool = False

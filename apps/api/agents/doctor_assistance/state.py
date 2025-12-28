@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from uuid import UUID
+from typing import Optional
 
 
 class DoctorAssistanceState(BaseModel):
@@ -8,4 +9,4 @@ class DoctorAssistanceState(BaseModel):
     doctor_id: str
     department: str
     symptoms_summary: str
-    token_number: int
+    token_number: Optional[int] = None
