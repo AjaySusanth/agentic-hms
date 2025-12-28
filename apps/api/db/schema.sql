@@ -31,7 +31,6 @@ CREATE TABLE visits (
     patient_id UUID NOT NULL REFERENCES patients(id),
     doctor_id UUID NOT NULL REFERENCES doctors(id),
     symptoms_summary TEXT,
-    token_number INT,
     status TEXT DEFAULT 'scheduled',
     created_at TIMESTAMPTZ DEFAULT now()
 );

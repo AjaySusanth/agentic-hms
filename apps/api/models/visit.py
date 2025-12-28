@@ -33,11 +33,6 @@ class Visit(Base):
         nullable=True,
     )
 
-    token_number: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
-    )
-
     status: Mapped[str] = mapped_column(
         String(50),
         default="scheduled",
@@ -55,4 +50,4 @@ class Visit(Base):
     doctor = relationship("Doctor", back_populates="visits")
 
     def __repr__(self) -> str:
-        return f"<Visit(patient={self.patient_id}, doctor={self.doctor_id}, token={self.token_number})>"
+        return f"<Visit(patient={self.patient_id}, doctor={self.doctor_id}, status={self.status})>"

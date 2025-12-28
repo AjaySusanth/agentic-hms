@@ -39,10 +39,12 @@ class QueueEntry(Base):
     consultation_end_time = Column(DateTime(timezone=True))
 
     created_at = Column(
-        func.now(), nullable=False, server_default=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at = Column(
-        func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
         onupdate=func.now(),
     )
 
