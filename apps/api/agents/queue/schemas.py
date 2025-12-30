@@ -50,3 +50,26 @@ class CheckInResponse(BaseModel):
     success: bool
     visit_id: UUID
     status: str
+
+class SkipRequest(BaseModel):
+    visit_id: UUID
+    doctor_id: UUID
+    queue_date: date
+    reason: str
+
+
+class SkipResponse(BaseModel):
+    success: bool
+    visit_id: UUID
+    status: str
+
+class StartConsultationRequest(BaseModel):
+    doctor_id: UUID
+    visit_id: UUID
+    queue_date: date
+
+
+class StartConsultationResponse(BaseModel):
+    success: bool
+    visit_id: UUID
+    status: str

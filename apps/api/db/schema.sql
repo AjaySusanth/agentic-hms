@@ -88,6 +88,7 @@ CREATE TABLE queue_entries (
         status IN (
             'waiting',
             'present',
+            'called',
             'in_consultation',
             'skipped',
             'completed'
@@ -97,6 +98,10 @@ CREATE TABLE queue_entries (
     check_in_time TIMESTAMPTZ,
     consultation_start_time TIMESTAMPTZ,
     consultation_end_time TIMESTAMPTZ,
+    skipped_at TIMESTAMPTZ,
+    skip_reason TEXT,
+    skip_position_token INT,
+    eligible_after_token INT,
 
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
