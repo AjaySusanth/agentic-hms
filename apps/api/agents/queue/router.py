@@ -5,7 +5,7 @@ from uuid import UUID
 
 from db.session import get_db_session
 from services.queue_service import QueueService
-from agents.queue.schemas import QueueIntakeRequest, QueueIntakeResponse,CallNextRequest,CallNextResponse,EndConsultationRequest,EndConsultationResponse
+from agents.queue.schemas import QueueIntakeRequest, QueueIntakeResponse,CallNextRequest,CallNextResponse,EndConsultationRequest,EndConsultationResponse, CheckInRequest,CheckInResponse
 
 router = APIRouter(prefix="/agents/queue", tags=["Queue Agent"])
 
@@ -38,5 +38,15 @@ async def end_consultation(
 ):
     try:
         return await QueueService.end_consultation(db, request)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/check-in", response_model=CheckInResponse)
+async def check_in_patient(
+    request: CheckInRequest,
+    db: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await QueueService.check_in(db, request)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

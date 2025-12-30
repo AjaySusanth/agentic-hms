@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func,asc
 from datetime import datetime, timedelta
 
-from agents.queue.schemas import QueueIntakeRequest, QueueIntakeResponse,CallNextResponse,CallNextRequest,EndConsultationResponse,EndConsultationRequest
+from agents.queue.schemas import QueueIntakeRequest, QueueIntakeResponse,CallNextResponse,CallNextRequest,EndConsultationResponse,EndConsultationRequest,CheckInResponse,CheckInRequest
 from models.doctor_queue import DoctorQueue
 from models.queue_entry import QueueEntry
 from models.visit import Visit
@@ -78,8 +78,14 @@ class QueueService:
                     reason="Doctor shift will end before consultation",
                 )
 
-            # 5️⃣ Assign token
-            token_number = active_count + 1
+            # 5️⃣ Assign token (unique across ALL entries)
+            result = await db.execute(
+                select(func.max(QueueEntry.token_number)).where(
+                    QueueEntry.queue_id == queue.id,
+                )
+            )
+            max_token = result.scalar() or 0
+            token_number = max_token + 1
 
             entry = QueueEntry(
                 queue_id=queue.id,
@@ -89,10 +95,6 @@ class QueueService:
                 status="waiting",
             )
             db.add(entry)
-
-            # 6️⃣ Update visit
-            visit = await db.get(Visit, request.visit_id)
-            visit.token_number = token_number
 
             queue.last_event_type = "VISIT_ADDED"
             queue.last_event_reason = "Within shift capacity"
@@ -260,5 +262,53 @@ class QueueService:
             success=True,
             visit_id=request.visit_id,
             message="Consultation ended successfully",
+        )
+    
+    @staticmethod
+    async def check_in(
+        db: AsyncSession,
+        request: CheckInRequest,
+    ) -> CheckInResponse:
+
+        async with db.begin():  # 🔒 TRANSACTION
+
+            # 1️⃣ Find queue entry for this visit & date
+            result = await db.execute(
+                select(QueueEntry)
+                .join(DoctorQueue, QueueEntry.queue_id == DoctorQueue.id)
+                .where(
+                    QueueEntry.visit_id == request.visit_id,
+                    DoctorQueue.queue_date == request.queue_date,
+                )
+            )
+            entry = result.scalar_one_or_none()
+
+            if not entry:
+                raise ValueError("Queue entry not found")
+
+            # 2️⃣ Validate state
+            if entry.status == "present":
+                # Idempotent success
+                return CheckInResponse(
+                    success=True,
+                    visit_id=request.visit_id,
+                    status="present",
+                )
+
+            if entry.status != "waiting":
+                raise ValueError(
+                    f"Cannot check-in patient in state '{entry.status}'"
+                )
+
+            # 3️⃣ Mark as present
+            entry.status = "present"
+            entry.check_in_time = datetime.utcnow()
+
+        # 🔓 COMMIT
+
+        return CheckInResponse(
+            success=True,
+            visit_id=request.visit_id,
+            status="present",
         )
     

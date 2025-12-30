@@ -40,3 +40,13 @@ class EndConsultationResponse(BaseModel):
     success: bool
     visit_id: UUID
     message: str
+
+class CheckInRequest(BaseModel):
+    visit_id: UUID
+    queue_date: date
+
+
+class CheckInResponse(BaseModel):
+    success: bool
+    visit_id: UUID
+    status: str
