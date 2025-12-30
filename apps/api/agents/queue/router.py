@@ -5,7 +5,7 @@ from uuid import UUID
 
 from db.session import get_db_session
 from services.queue_service import QueueService
-from agents.queue.schemas import QueueIntakeRequest, QueueIntakeResponse,CallNextRequest,CallNextResponse,EndConsultationRequest,EndConsultationResponse, CheckInRequest,CheckInResponse,SkipRequest,SkipResponse,StartConsultationRequest,StartConsultationResponse
+from agents.queue.schemas import QueueIntakeRequest, QueueIntakeResponse,CallNextRequest,CallNextResponse,EndConsultationRequest,EndConsultationResponse, CheckInRequest,CheckInResponse,SkipRequest,SkipResponse,StartConsultationRequest,StartConsultationResponse,QueueStatusRequest
 
 router = APIRouter(prefix="/agents/queue", tags=["Queue Agent"])
 
@@ -69,5 +69,15 @@ async def start_consultation(
 ):
     try:
         return await QueueService.start_consultation(db, request)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/status")
+async def queue_status(
+    request: QueueStatusRequest = Depends(),
+    db: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await QueueService.get_status(db, request)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

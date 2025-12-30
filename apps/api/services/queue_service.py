@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func,asc
 from datetime import datetime, timedelta
 
-from agents.queue.schemas import QueueIntakeRequest, QueueIntakeResponse,CallNextResponse,CallNextRequest,EndConsultationResponse,EndConsultationRequest,CheckInResponse,CheckInRequest,SkipResponse,SkipRequest,StartConsultationRequest,StartConsultationResponse
+from agents.queue.schemas import QueueIntakeRequest, QueueIntakeResponse,CallNextResponse,CallNextRequest,EndConsultationResponse,EndConsultationRequest,CheckInResponse,CheckInRequest,SkipResponse,SkipRequest,StartConsultationRequest,StartConsultationResponse,QueueStatusRequest,DoctorQueueStatus,ReceptionQueueStatus,PatientQueueStatus,TokenInfo
 from models.doctor_queue import DoctorQueue
 from models.queue_entry import QueueEntry
 from models.visit import Visit
@@ -421,4 +421,117 @@ class QueueService:
             status="in_consultation",
         )
 
+    @staticmethod
+    async def get_status(db, request: QueueStatusRequest):
+
+        # 1️⃣ Fetch queue
+        result = await db.execute(
+            select(DoctorQueue).where(
+                DoctorQueue.doctor_id == request.doctor_id,
+                DoctorQueue.queue_date == request.queue_date,
+            )
+        )
+        queue = result.scalar_one_or_none()
+
+        if not queue:
+            raise ValueError("Queue not found")
+
+        # 2️⃣ Fetch all queue entries
+        result = await db.execute(
+            select(QueueEntry).where(
+                QueueEntry.queue_id == queue.id
+            )
+        )
+        entries = result.scalars().all()
+
+        # ---------- DOCTOR VIEW ----------
+        if request.role == "doctor":
+
+            called_entry = next(
+                (e for e in entries if e.status == "called"), None
+            )
+
+            next_waiting = [
+                TokenInfo(token_number=e.token_number, status=e.status)
+                for e in sorted(entries, key=lambda x: x.token_number)
+                if e.status in ("present", "waiting")
+            ][:3]
+
+            counts = {
+                "waiting": sum(1 for e in entries if e.status == "waiting"),
+                "present": sum(1 for e in entries if e.status == "present"),
+                "skipped": sum(1 for e in entries if e.status == "skipped"),
+            }
+
+            return DoctorQueueStatus(
+                role="doctor",
+                queue_open=queue.queue_open,
+                current_token=queue.current_token,
+                current_visit_id=queue.current_visit_id,
+                called=(
+                    TokenInfo(
+                        token_number=called_entry.token_number,
+                        status=called_entry.status,
+                    )
+                    if called_entry else None
+                ),
+                next_waiting=next_waiting,
+                counts=counts,
+            )
+
+        # ---------- PATIENT VIEW ----------
+        if request.role == "patient":
+
+            if not request.visit_id:
+                raise ValueError("visit_id is required for patient view")
+
+            entry = next(
+                (e for e in entries if e.visit_id == request.visit_id), None
+            )
+
+            if not entry:
+                raise ValueError("Visit not found in queue")
+
+            active_entries = [
+                e for e in entries
+                if e.status in ("waiting", "present", "called")
+            ]
+
+            patients_ahead = sum(
+                1 for e in active_entries
+                if e.token_number < entry.token_number
+            )
+
+            estimated_wait = (
+                patients_ahead * queue.avg_consult_time_minutes
+            )
+
+            return PatientQueueStatus(
+                role="patient",
+                visit_id=request.visit_id,
+                token_number=entry.token_number,
+                status=entry.status,
+                current_token=queue.current_token,
+                patients_ahead=patients_ahead,
+                estimated_wait_minutes=estimated_wait,
+            )
+
+        # ---------- RECEPTION VIEW ----------
+        if request.role == "receptionist":
+
+            return ReceptionQueueStatus(
+                role="receptionist",
+                queue_date=request.queue_date,
+                doctor_id=request.doctor_id,
+                total_visits=len(entries),
+                completed=sum(1 for e in entries if e.status == "completed"),
+                in_progress=sum(
+                    1 for e in entries
+                    if e.status in ("called", "in_consultation")
+                ),
+                waiting=sum(1 for e in entries if e.status == "waiting"),
+                skipped=sum(1 for e in entries if e.status == "skipped"),
+            )
+
+        raise ValueError("Invalid role")
         
