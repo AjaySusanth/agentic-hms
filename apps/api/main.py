@@ -1,13 +1,14 @@
 from fastapi import FastAPI
 
 from agents.registration.router import router as registration_router
-
+from agents.queue.router import router as queue_router
 app = FastAPI(
     title="HMS Multi-Agent API",
     version="1.0.0"
 )
 
 app.include_router(registration_router)
+app.include_router(queue_router)
 
 
 @app.get("/health")

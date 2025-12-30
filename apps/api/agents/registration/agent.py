@@ -1,5 +1,7 @@
 from typing import Any, Dict,Optional,List
 from uuid import UUID,uuid4
+from datetime import datetime
+from agents.queue.client import handoff_to_queue_agent
 
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -73,14 +75,6 @@ def classify_department_with_llm(symptoms: str, departments: Dict[str, str],age:
 
     return result if result in departments else None
 
-
-def handoff_to_doctor_agent(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Sends visit context to Doctor Assistance Agent.
-    """
-    state = DoctorAssistanceState(**payload)
-    agent = DoctorAssistanceAgent(state)
-    return agent.handle()
 
 
 class RegistrationAgent(BaseAgent[RegistrationAgentState]):
@@ -361,7 +355,7 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
         return await self.handle({})
 
     async def _handle_create_visit(self) -> Dict[str, Any]:
-        visit = await VisitService.create_with_token(
+        visit = await VisitService.create(
             self.db,
             patient_id=self.state.patient_id,
             doctor_id=self.state.doctor_id,
@@ -370,36 +364,38 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
 
         self.update_state(
             visit_id=visit.id,
-            token_number=visit.token_number,
         )
 
         self.transition_to(RegistrationStep.HANDOFF_COMPLETE)
 
-        return {
-            "message": f"Visit registered successfully. Token number: {visit.token_number}",
-            "token_number": visit.token_number,
-        }
+        # Auto-execute handoff
+        return await self.handle({})
 
     async def _handle_handoff(self) -> Dict[str, Any]:
+        # 🔒 IDEMPOTENCY: Prevent duplicate queue entries
+        if self.state.handoff_processed:
+            return {
+                "message": "You are already in the queue.",
+                "queue_status": {
+                    "accepted": True,
+                    "visit_id": str(self.state.visit_id),
+                    "reason": "Queue entry already created",
+                },
+            }
+
         payload = {
             "visit_id": self.state.visit_id,
             "patient_id": self.state.patient_id,
             "doctor_id": self.state.doctor_id,
-            "department": self.state.department_final,  # ✅ FINAL, authoritative
-            "symptoms_summary": self.state.symptoms_summary,
-            "token_number": self.state.token_number,
-
-            
-            "department_suggested": self.state.department_suggested,
-            "department_confidence": self.state.department_confidence,
-            "department_reasoning": self.state.department_reasoning,
-            "department_overridden": self.state.department_overridden,
+            "queue_date": datetime.utcnow().date(),
         }
 
-        result = handoff_to_doctor_agent(payload)
+        result = await handoff_to_queue_agent(payload)
+        
+        # Mark handoff as processed
+        self.update_state(handoff_processed=True)
 
         return {
-            "message": "You have been successfully registered. "
-                    "Please proceed to the consultation.",
-            "handoff_status": result,
+            "message": "You have been added to the queue.",
+            "queue_status": result,
         }

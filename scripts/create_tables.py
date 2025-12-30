@@ -11,7 +11,7 @@ from db.session import engine
 from db.base import Base
 
 # Import models so metadata is registered
-from models import patient, department, doctor, visit  # noqa
+from models import patient, department, doctor, visit # noqa
 
 
 async def create_tables():
