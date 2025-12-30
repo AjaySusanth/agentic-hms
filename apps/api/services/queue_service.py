@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func,asc
 from datetime import datetime, timedelta
 
-from agents.queue.schemas import QueueIntakeRequest, QueueIntakeResponse,CallNextResponse,CallNextRequest
+from agents.queue.schemas import QueueIntakeRequest, QueueIntakeResponse,CallNextResponse,CallNextRequest,EndConsultationResponse,EndConsultationRequest
 from models.doctor_queue import DoctorQueue
 from models.queue_entry import QueueEntry
 from models.visit import Visit
@@ -115,6 +115,11 @@ class QueueService:
 
         async with db.begin():
 
+            # 0️⃣ Validate doctor exists
+            doctor = await db.get(Doctor, request.doctor_id)
+            if not doctor:
+                raise ValueError("Doctor not found")
+
             # 1️⃣ Fetch queue
             result = await db.execute(
                 select(DoctorQueue).where(
@@ -196,3 +201,64 @@ class QueueService:
             token_number=entry.token_number,
             status="in_consultation",
         )
+
+    @staticmethod
+    async def end_consultation(
+        db: AsyncSession,
+        request: EndConsultationRequest,
+    ) -> EndConsultationResponse:
+
+        async with db.begin():  # 🔒 TRANSACTION START
+
+            # 1️⃣ Fetch doctor queue
+            result = await db.execute(
+                select(DoctorQueue).where(
+                    DoctorQueue.doctor_id == request.doctor_id,
+                    DoctorQueue.queue_date == request.queue_date,
+                )
+            )
+            queue = result.scalar_one_or_none()
+
+            if not queue or not queue.current_visit_id:
+                raise ValueError("No active consultation for this doctor")
+
+            # 2️⃣ Validate visit
+            if queue.current_visit_id != request.visit_id:
+                raise ValueError("Visit does not match active consultation")
+
+            # 3️⃣ Fetch queue entry
+            result = await db.execute(
+                select(QueueEntry).where(
+                    QueueEntry.queue_id == queue.id,
+                    QueueEntry.visit_id == request.visit_id,
+                    QueueEntry.status == "in_consultation",
+                )
+            )
+            entry = result.scalar_one_or_none()
+
+            if not entry:
+                raise ValueError("Queue entry not found or already closed")
+
+            # 4️⃣ Close queue entry
+            entry.status = "completed"
+            entry.consultation_end_time = datetime.utcnow()
+
+            # 5️⃣ Update visit
+            visit = await db.get(Visit, request.visit_id)
+            visit.status = "completed"
+
+            # 6️⃣ Free doctor queue
+            queue.current_visit_id = None
+            queue.current_token = None
+            queue.last_event_type = "CONSULTATION_ENDED"
+            queue.last_event_reason = "Doctor ended consultation"
+            queue.last_updated_by = "doctor"
+
+        # 🔓 TRANSACTION COMMIT
+
+        return EndConsultationResponse(
+            success=True,
+            visit_id=request.visit_id,
+            message="Consultation ended successfully",
+        )
+    

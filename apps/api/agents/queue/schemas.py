@@ -29,3 +29,14 @@ class CallNextResponse(BaseModel):
     doctor_id: UUID
     token_number: int
     status: str
+
+class EndConsultationRequest(BaseModel):
+    doctor_id: UUID
+    visit_id: UUID
+    queue_date: date
+
+
+class EndConsultationResponse(BaseModel):
+    success: bool
+    visit_id: UUID
+    message: str
