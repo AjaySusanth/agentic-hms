@@ -497,13 +497,22 @@ class QueueService:
                 if e.status in ("waiting", "present", "called")
             ]
 
-            patients_ahead = sum(
+            # Calculate ahead counts by status
+            present_ahead = sum(
                 1 for e in active_entries
-                if e.token_number < entry.token_number
+                if e.token_number < entry.token_number and e.status == "present"
             )
 
+            waiting_ahead = sum(
+                1 for e in active_entries
+                if e.token_number < entry.token_number and e.status == "waiting"
+            )
+
+            patients_ahead = present_ahead + waiting_ahead
+
+            # Only count present patients for estimated wait (waiting may not show up)
             estimated_wait = (
-                patients_ahead * queue.avg_consult_time_minutes
+                present_ahead * queue.avg_consult_time_minutes
             )
 
             return PatientQueueStatus(
@@ -513,6 +522,8 @@ class QueueService:
                 status=entry.status,
                 current_token=queue.current_token,
                 patients_ahead=patients_ahead,
+                present_ahead=present_ahead,
+                waiting_ahead=waiting_ahead,
                 estimated_wait_minutes=estimated_wait,
             )
 

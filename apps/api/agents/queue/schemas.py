@@ -109,6 +109,8 @@ class PatientQueueStatus(BaseModel):
     status: str
     current_token: Optional[int]
     patients_ahead: int
+    present_ahead: int
+    waiting_ahead: int
     estimated_wait_minutes: int
     message: Optional[str] = None
 

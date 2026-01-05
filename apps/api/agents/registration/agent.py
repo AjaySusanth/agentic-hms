@@ -349,7 +349,10 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
                 "message": "Invalid doctor selection.",
             }
 
-        self.update_state(doctor_id=selected.id)
+        self.update_state(
+            doctor_id=selected.id,
+            doctor_name=selected.name
+        )
         self.transition_to(RegistrationStep.CREATE_VISIT)
 
         return await self.handle({})
@@ -365,6 +368,8 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
         self.update_state(
             visit_id=visit.id,
         )
+        
+        print(f"Visit created - Visit ID: {visit.id} | Doctor ID: {self.state.doctor_id}")
 
         self.transition_to(RegistrationStep.HANDOFF_COMPLETE)
 
