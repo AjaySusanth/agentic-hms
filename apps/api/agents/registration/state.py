@@ -50,6 +50,7 @@ class RegistrationAgentState(BaseModel):
 
     # --- Visit ---
     doctor_id: Optional[UUID] = None
+    doctor_name: Optional[str] = None
     visit_id: Optional[UUID] = None
     
     # --- Handoff State ---

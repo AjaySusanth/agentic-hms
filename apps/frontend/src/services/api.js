@@ -328,8 +328,75 @@ class MockRegistrationService {
   }
 }
 
+/**
+ * Queue Management API Service
+ */
+class QueueService {
+  /**
+   * Get queue status
+   * @param {Object} params - Query parameters
+   * @param {string} params.visit_id - Visit ID
+   * @param {string} params.doctor_id - Doctor ID
+   * @param {string} params.queue_date - Queue date (YYYY-MM-DD)
+   * @param {string} params.role - Role (patient/doctor/receptionist)
+   * @returns {Promise<Object>} Queue status
+   */
+  static async getQueueStatus(params) {
+    try {
+      const queryString = new URLSearchParams(params).toString();
+      const response = await apiClient.get(`/agents/queue/status?${queryString}`);
+      return response.data;
+    } catch (error) {
+      throw this._handleError(error);
+    }
+  }
+
+  /**
+   * Check in patient
+   * @param {Object} payload - Check-in payload
+   * @param {string} payload.visit_id - Visit ID
+   * @param {string} payload.queue_date - Queue date (YYYY-MM-DD)
+   * @returns {Promise<Object>} Check-in response
+   */
+  static async checkIn(payload) {
+    try {
+      const response = await apiClient.post('/agents/queue/check-in', payload);
+      return response.data;
+    } catch (error) {
+      throw this._handleError(error);
+    }
+  }
+
+  /**
+   * Handle API errors
+   * @private
+   */
+  static _handleError(error) {
+    if (error.response) {
+      return {
+        message: error.response.data?.detail || error.response.data?.message || 'Server error occurred',
+        status: error.response.status,
+        data: error.response.data
+      };
+    } else if (error.request) {
+      return {
+        message: 'No response from server. Please check your connection.',
+        status: 0
+      };
+    } else {
+      return {
+        message: error.message || 'An unexpected error occurred',
+        status: -1
+      };
+    }
+  }
+}
+
 // BACKEND CONNECTION: Switch between mock and real service
 // Set USE_MOCK_API to false when backend is ready
 const USE_MOCK_API = false; // Change to false to use real backend
 
-export default USE_MOCK_API ? MockRegistrationService : RegistrationService;
+const registrationService = USE_MOCK_API ? MockRegistrationService : RegistrationService;
+
+export default registrationService;
+export { QueueService };
