@@ -7,8 +7,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
-app.include_router(registration_router)
-app.include_router(queue_router)
+app.include_router(registration_router, prefix="/api")
+app.include_router(queue_router, prefix="/api")
 
 
 @app.get("/health")
