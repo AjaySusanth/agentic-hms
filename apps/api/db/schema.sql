@@ -112,6 +112,14 @@ CREATE TABLE queue_entries (
 
 
 --dummy data
+
+INSERT INTO departments (id, name, description) VALUES
+(gen_random_uuid(), 'General Medicine', 'Common illnesses, fever, cold, general health'),
+(gen_random_uuid(), 'Cardiology', 'Heart-related conditions and chest pain'),
+(gen_random_uuid(), 'Orthopedics', 'Bone, joint, and muscle issues'),
+(gen_random_uuid(), 'Pediatrics', 'Healthcare for children under 18');
+
+
 INSERT INTO doctors (id, name, specialization, department_id, is_available)
 SELECT
     gen_random_uuid(),
@@ -133,14 +141,70 @@ FROM departments d
 WHERE d.name = 'General Medicine';
 
 INSERT INTO doctors (id, name, specialization, department_id, is_available)
-SELECT
-    gen_random_uuid(),
-    'Dr. Charlie Day',
-    'Orthopedic Surgeon',
+SELECT 
+    gen_random_uuid(), 
+    'Dr. Charlie Day', 
+    'Orthopedic Surgeon', 
+    d.id,            -- This gets the ID from the departments table
+    true             -- Providing a value for is_available
+FROM departments d   -- This defines what "d" is
 WHERE d.name = 'Orthopedics';
 
-INSERT INTO departments (id, name, description) VALUES
-(gen_random_uuid(), 'General Medicine', 'Common illnesses, fever, cold, general health'),
-(gen_random_uuid(), 'Cardiology', 'Heart-related conditions and chest pain'),
-(gen_random_uuid(), 'Orthopedics', 'Bone, joint, and muscle issues'),
-(gen_random_uuid(), 'Pediatrics', 'Healthcare for children under 18');
+
+
+
+CREATE TABLE consultations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    visit_id UUID NOT NULL UNIQUE REFERENCES visits(id),
+
+    doctor_id UUID NOT NULL,
+    patient_id UUID NOT NULL,
+
+    notes TEXT,
+
+    started_at TIMESTAMPTZ,
+    ended_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE prescriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    visit_id UUID NOT NULL REFERENCES visits(id),
+
+    status TEXT DEFAULT 'pending', 
+    -- pending, sent_to_pharmacy, fulfilled
+
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+
+CREATE TABLE prescription_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    prescription_id UUID NOT NULL REFERENCES prescriptions(id),
+
+    medicine_name TEXT NOT NULL,
+    dosage TEXT,
+    frequency TEXT,
+    duration_days INT,
+    instructions TEXT,
+
+    availability_status TEXT DEFAULT 'unknown'
+    -- unknown, in_stock, out_of_stock (future)
+
+);
+
+CREATE TABLE lab_orders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    visit_id UUID NOT NULL REFERENCES visits(id),
+
+    test_name TEXT NOT NULL,
+    priority TEXT DEFAULT 'routine', 
+    -- routine, urgent
+
+    status TEXT DEFAULT 'ordered',
+    -- ordered, scheduled, completed
+
+    created_at TIMESTAMPTZ DEFAULT now()
+);

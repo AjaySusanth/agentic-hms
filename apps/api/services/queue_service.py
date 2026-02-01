@@ -11,6 +11,9 @@ from models.doctor import Doctor
 from models.department import Department
 from agents.doctor_assistance.agent import DoctorAssistanceAgent
 from agents.doctor_assistance.state import DoctorAssistanceState
+from services.agent_session_service import AgentSessionService, agent_sessions
+from agents.doctor_assistance.state import DoctorAssistanceState
+from services.agent_session_service import AgentSessionService
 
 
 class QueueService:
@@ -194,7 +197,17 @@ class QueueService:
             symptoms_summary=visit.symptoms_summary,
         )
 
-        DoctorAssistanceAgent(state).handle()
+        agent = DoctorAssistanceAgent(state, db=db)
+        await agent.handle({})
+        
+        # Save agent state to database for persistence
+        import uuid as uuid_module
+        session_id = uuid_module.uuid4()
+        await AgentSessionService.create(
+            db,
+            agent_name=agent.state.agent_name,
+            state=agent.state.dict(),
+        )
 
         return CallNextResponse(
             visit_id=visit.id,
@@ -257,6 +270,45 @@ class QueueService:
             queue.last_updated_by = "doctor"
 
         # 🔓 TRANSACTION COMMIT
+
+        print(
+            "[QueueService] Consultation ended successfully | "
+            f"visit_id={request.visit_id} doctor_id={request.doctor_id}"
+        )
+
+        # Notify Doctor Assistance Agent about consultation end
+        print(
+            "[QueueService] Notifying Doctor Assistance Agent (end) | "
+            f"visit_id={request.visit_id} doctor_id={request.doctor_id}"
+        )
+
+        session_result = await db.execute(
+            select(agent_sessions).where(
+                agent_sessions.c.state['visit_id'].astext == str(request.visit_id)
+            ).order_by(agent_sessions.c.created_at.desc()).limit(1)
+        )
+        session_row = session_result.first()
+
+        if session_row:
+            state = DoctorAssistanceState(**session_row[2])
+            session_id = session_row[0]
+        else:
+            state = DoctorAssistanceState(
+                visit_id=visit.id,
+                patient_id=visit.patient_id,
+                doctor_id=request.doctor_id,
+            )
+            session_id = None
+
+        agent = DoctorAssistanceAgent(state, db=db)
+        await agent.handle({"action": "end_consultation"})
+
+        if session_id:
+            await AgentSessionService.update(
+                db,
+                session_id,
+                agent.state.dict(),
+            )
 
         return EndConsultationResponse(
             success=True,
@@ -383,6 +435,10 @@ class QueueService:
         db: AsyncSession,
         request: StartConsultationRequest,
     ) -> StartConsultationResponse:
+        print(
+            "[QueueService] Starting consultation | "
+            f"visit_id={request.visit_id} doctor_id={request.doctor_id} queue_date={request.queue_date}"
+        )
 
         async with db.begin():
 
@@ -414,7 +470,80 @@ class QueueService:
 
             queue.last_event_type = "CONSULTATION_STARTED"
             queue.last_updated_by = "doctor"
+            
+            # Fetch visit and patient context for Doctor Assistance Agent
+            visit = await db.get(Visit, request.visit_id)
+            patient = await db.get(Patient, visit.patient_id)
+            doctor = await db.get(Doctor, request.doctor_id)
+            
+            dept_name = None
+            if doctor and doctor.department_id:
+                dept = await db.get(Department, doctor.department_id)
+                if dept:
+                    dept_name = dept.name
 
+        # 🔓 TRANSACTION COMMIT DONE
+
+        print(
+            "[QueueService] Consultation started successfully | "
+            f"visit_id={request.visit_id} status=in_consultation"
+        )
+        
+        # Notify Doctor Assistance Agent about consultation start
+        print(
+            "[QueueService] Notifying Doctor Assistance Agent | "
+            f"visit_id={request.visit_id} doctor_id={request.doctor_id}"
+        )
+        
+        # Load existing doctor assistance state from database
+        # Search for sessions with this visit_id
+        from sqlalchemy import literal_column
+        session_result = await db.execute(
+            select(agent_sessions).where(
+                agent_sessions.c.state['visit_id'].astext == str(request.visit_id)
+            ).order_by(agent_sessions.c.created_at.desc()).limit(1)
+        )
+        session_row = session_result.first()
+        
+        if session_row:
+            # Load state from database
+            print(
+                f"[QueueService] Loaded doctor assistance state from DB | visit_id={request.visit_id}"
+            )
+            state = DoctorAssistanceState(**session_row[2])  # state is at index 2
+            session_id = session_row[0]  # session_id is at index 0
+        else:
+            # Fallback: create new state if not found
+            print(
+                f"[QueueService] No saved state found, creating new state | visit_id={request.visit_id}"
+            )
+            state = DoctorAssistanceState(
+                visit_id=visit.id,
+                patient_id=patient.id,
+                doctor_id=request.doctor_id,
+                department=dept_name,
+                token_number=entry.token_number,
+                symptoms_summary=visit.symptoms_summary,
+            )
+            import uuid as uuid_module
+            session_id = uuid_module.uuid4()
+        
+        agent = DoctorAssistanceAgent(state, db=db)
+        await agent.handle(
+            {
+                "action": "start_consultation",
+                "queue_date": str(request.queue_date),
+                "skip_queue_call": True,  # Skip queue_client call since we're already in QueueService
+            }
+        )
+        
+        # Update agent state in database
+        await AgentSessionService.update(
+            db,
+            session_id,
+            agent.state.dict(),
+        )
+        
         return StartConsultationResponse(
             success=True,
             visit_id=request.visit_id,
