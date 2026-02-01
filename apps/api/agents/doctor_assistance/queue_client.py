@@ -21,7 +21,7 @@ class QueueAgentClient:
     ) -> Dict:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{self.base_url}/agents/queue/start-consultation",
+                f"{self.base_url}/api/agents/queue/start-consultation",
                 json={
                     "doctor_id": str(doctor_id),
                     "visit_id": str(visit_id),
@@ -33,6 +33,31 @@ class QueueAgentClient:
         if resp.status_code != 200:
             raise ValueError(
                 f"Queue Agent rejected start-consultation: {resp.text}"
+            )
+
+        return resp.json()
+
+    async def end_consultation(
+        self,
+        *,
+        doctor_id: UUID,
+        visit_id: UUID,
+        queue_date: date,
+    ) -> Dict:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{self.base_url}/api/agents/queue/end-consultation",
+                json={
+                    "doctor_id": str(doctor_id),
+                    "visit_id": str(visit_id),
+                    "queue_date": queue_date.isoformat(),
+                },
+                timeout=5.0,
+            )
+
+        if resp.status_code != 200:
+            raise ValueError(
+                f"Queue Agent rejected end-consultation: {resp.text}"
             )
 
         return resp.json()

@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func,asc
+from sqlalchemy import select, func,asc, literal_column
 from datetime import datetime, timedelta
 
 from agents.queue.schemas import QueueIntakeRequest, QueueIntakeResponse,CallNextResponse,CallNextRequest,EndConsultationResponse,EndConsultationRequest,CheckInResponse,CheckInRequest,SkipResponse,SkipRequest,StartConsultationRequest,StartConsultationResponse,QueueStatusRequest,DoctorQueueStatus,ReceptionQueueStatus,PatientQueueStatus,TokenInfo
@@ -12,8 +12,7 @@ from models.department import Department
 from agents.doctor_assistance.agent import DoctorAssistanceAgent
 from agents.doctor_assistance.state import DoctorAssistanceState
 from services.agent_session_service import AgentSessionService, agent_sessions
-from agents.doctor_assistance.state import DoctorAssistanceState
-from services.agent_session_service import AgentSessionService
+import uuid
 
 
 class QueueService:
@@ -201,12 +200,11 @@ class QueueService:
         await agent.handle({})
         
         # Save agent state to database for persistence
-        import uuid as uuid_module
-        session_id = uuid_module.uuid4()
+        session_id = uuid.uuid4()
         await AgentSessionService.create(
             db,
             agent_name=agent.state.agent_name,
-            state=agent.state.dict(),
+            state=agent.state.model_dump(),
         )
 
         return CallNextResponse(
@@ -246,7 +244,7 @@ class QueueService:
                 select(QueueEntry).where(
                     QueueEntry.queue_id == queue.id,
                     QueueEntry.visit_id == request.visit_id,
-                    QueueEntry.status == "in_consultation",
+                    QueueEntry.status.in_(["in_consultation", "called"]),
                 )
             )
             entry = result.scalar_one_or_none()
@@ -301,7 +299,10 @@ class QueueService:
             session_id = None
 
         agent = DoctorAssistanceAgent(state, db=db)
-        await agent.handle({"action": "end_consultation"})
+        await agent.handle({
+            "action": "end_consultation",
+            "skip_queue_call": True,  # Prevent recursion: we are already in QueueService
+        })
 
         if session_id:
             await AgentSessionService.update(
@@ -497,7 +498,7 @@ class QueueService:
         
         # Load existing doctor assistance state from database
         # Search for sessions with this visit_id
-        from sqlalchemy import literal_column
+
         session_result = await db.execute(
             select(agent_sessions).where(
                 agent_sessions.c.state['visit_id'].astext == str(request.visit_id)
@@ -525,8 +526,7 @@ class QueueService:
                 token_number=entry.token_number,
                 symptoms_summary=visit.symptoms_summary,
             )
-            import uuid as uuid_module
-            session_id = uuid_module.uuid4()
+            session_id = uuid.uuid4()
         
         agent = DoctorAssistanceAgent(state, db=db)
         await agent.handle(
@@ -541,7 +541,7 @@ class QueueService:
         await AgentSessionService.update(
             db,
             session_id,
-            agent.state.dict(),
+            agent.state.model_dump(),
         )
         
         return StartConsultationResponse(

@@ -81,16 +81,10 @@ class DoctorAssistanceAgent(BaseAgent[DoctorAssistanceState]):
 
         queue_date = date.fromisoformat(queue_date_raw)
 
-        # Check if this is being called internally from QueueService (skip queue_client call)
-        skip_queue_call = input_data.get("skip_queue_call", False)
-        
-        if not skip_queue_call:
-            # 1️⃣ Delegate to Queue Agent (only if not called internally)
-            await self.queue_client.start_consultation(
-                doctor_id=self.state.doctor_id,
-                visit_id=self.state.visit_id,
-                queue_date=queue_date,
-            )
+
+        # 1️⃣ Logic delegates to QueueService (managed externally)
+        # No HTTP call needed here as this is now a helper
+
 
         # 2️⃣ Update local state ONLY after success
         self.state.consultation_started_at = datetime.utcnow()
@@ -139,10 +133,24 @@ class DoctorAssistanceAgent(BaseAgent[DoctorAssistanceState]):
             }
 
         if action == "end_consultation":
+            # Check recursively called from QueueService
+            skip_queue_call = input_data.get("skip_queue_call", False)
+            
+            if not skip_queue_call:
+                # Delegate to Queue Service to handle full closure (queue + visit)
+                # This avoids split-brain where agent is closed but queue entry is stuck
+                await self.queue_client.end_consultation(
+                    doctor_id=self.state.doctor_id,
+                    visit_id=self.state.visit_id,
+                    queue_date=datetime.utcnow().date(),
+                )
+            
+            # The QueueService will call back (or we update local state)
             self.state.consultation_ended_at = datetime.utcnow()
             self.transition_to(DoctorAssistanceStep.COMPLETED)
+            
             print(
-                "[DoctorAssistance] Consultation ended | "
+                "[DoctorAssistance] Consultation ended via QueueService | "
                 f"visit_id={self.state.visit_id} doctor_id={self.state.doctor_id} "
                 f"ended_at={self.state.consultation_ended_at.isoformat()}"
             )
