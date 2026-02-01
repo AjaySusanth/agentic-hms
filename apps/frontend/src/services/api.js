@@ -368,6 +368,23 @@ class QueueService {
   }
 
   /**
+   * Start consultation
+   * @param {Object} payload - Start consultation payload
+   * @param {string} payload.doctor_id - Doctor ID
+   * @param {string} payload.visit_id - Visit ID
+   * @param {string} payload.queue_date - Queue date (YYYY-MM-DD)
+   * @returns {Promise<Object>} Start consultation response
+   */
+  static async startConsultation(payload) {
+    try {
+      const response = await apiClient.post('/agents/queue/start-consultation', payload);
+      return response.data;
+    } catch (error) {
+      throw this._handleError(error);
+    }
+  }
+
+  /**
    * Handle API errors
    * @private
    */

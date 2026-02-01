@@ -369,7 +369,10 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
             visit_id=visit.id,
         )
         
-        print(f"Visit created - Visit ID: {visit.id} | Doctor ID: {self.state.doctor_id}")
+        print(
+            f"Visit created - Visit ID: {visit.id} | Patient ID: {self.state.patient_id} | "
+            f"Doctor ID: {self.state.doctor_id}"
+        )
 
         self.transition_to(RegistrationStep.HANDOFF_COMPLETE)
 
