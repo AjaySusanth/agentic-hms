@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import RegistrationPage from './pages/RegistrationPage'
 import SuccessPage from './pages/SuccessPage'
 import QueuePage from "./pages/QueuePage";
+import DoctorPage from "./pages/DoctorPage";
 import Layout from "./components/Layout";
 
 function App() {
@@ -12,6 +13,7 @@ function App() {
           <Route path="/" element={<RegistrationPage />} />
           <Route path="/queue" element={<QueuePage />} />
           <Route path="/success" element={<SuccessPage />} />
+          <Route path="/doctor" element={<DoctorPage />} />
         </Routes>
       </Layout>
     </Router>
