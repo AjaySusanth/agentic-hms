@@ -2,7 +2,7 @@ from typing import Dict, Any
 import httpx
 from datetime import date
 
-QUEUE_AGENT_URL = "http://localhost:8000/agents/queue/intake"
+QUEUE_AGENT_URL = "http://localhost:8000/api/agents/queue/intake"
 
 
 async def handoff_to_queue_agent(payload: Dict[str, Any]) -> Dict[str, Any]:
