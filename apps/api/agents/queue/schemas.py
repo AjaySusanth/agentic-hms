@@ -30,6 +30,10 @@ class CallNextResponse(BaseModel):
     doctor_id: UUID
     token_number: int
     status: str
+    patient_name: str
+    patient_age: Optional[int] = None
+    patient_contact: str
+    symptoms_summary: Optional[str] = None
 
 class EndConsultationRequest(BaseModel):
     doctor_id: UUID

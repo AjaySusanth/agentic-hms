@@ -213,6 +213,10 @@ class QueueService:
             doctor_id=visit.doctor_id,
             token_number=entry.token_number,
             status="called",
+            patient_name=patient.full_name,
+            patient_age=patient.age,
+            patient_contact=patient.contact_number,
+            symptoms_summary=visit.symptoms_summary,
         )
 
     @staticmethod

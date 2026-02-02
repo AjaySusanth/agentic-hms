@@ -415,5 +415,148 @@ const USE_MOCK_API = false; // Change to false to use real backend
 
 const registrationService = USE_MOCK_API ? MockRegistrationService : RegistrationService;
 
+/**
+ * Doctor API Service
+ */
+class DoctorService {
+  /**
+   * Doctor login (minimal - by name)
+   * @param {string} name - Doctor's name
+   * @returns {Promise<Object>} Doctor info
+   */
+  static async login(name) {
+    try {
+      const response = await apiClient.post('/doctors/login', { name });
+      return response.data;
+    } catch (error) {
+      throw this._handleError(error);
+    }
+  }
+
+  /**
+   * Get doctor by ID
+   * @param {string} doctorId - Doctor UUID
+   * @returns {Promise<Object>} Doctor info
+   */
+  static async getDoctor(doctorId) {
+    try {
+      const response = await apiClient.get(`/doctors/${doctorId}`);
+      return response.data;
+    } catch (error) {
+      throw this._handleError(error);
+    }
+  }
+
+  /**
+   * Call next patient in queue
+   * @param {Object} payload
+   * @param {string} payload.doctor_id - Doctor UUID
+   * @param {string} payload.queue_date - Date in YYYY-MM-DD format
+   * @returns {Promise<Object>} Next patient info
+   */
+  static async callNext(payload) {
+    try {
+      const response = await apiClient.post('/agents/queue/call-next', payload);
+      return response.data;
+    } catch (error) {
+      throw this._handleError(error);
+    }
+  }
+
+  /**
+   * Start consultation
+   * @param {Object} payload
+   * @param {string} payload.doctor_id - Doctor UUID
+   * @param {string} payload.visit_id - Visit UUID
+   * @param {string} payload.queue_date - Date in YYYY-MM-DD format
+   * @returns {Promise<Object>} Start consultation response
+   */
+  static async startConsultation(payload) {
+    try {
+      const response = await apiClient.post('/agents/queue/start-consultation', payload);
+      return response.data;
+    } catch (error) {
+      throw this._handleError(error);
+    }
+  }
+
+  /**
+   * End consultation
+   * @param {Object} payload
+   * @param {string} payload.doctor_id - Doctor UUID
+   * @param {string} payload.visit_id - Visit UUID
+   * @param {string} payload.queue_date - Date in YYYY-MM-DD format
+   * @returns {Promise<Object>} End consultation response
+   */
+  static async endConsultation(payload) {
+    try {
+      const response = await apiClient.post('/agents/queue/end-consultation', payload);
+      return response.data;
+    } catch (error) {
+      throw this._handleError(error);
+    }
+  }
+
+  /**
+   * Skip patient
+   * @param {Object} payload
+   * @param {string} payload.doctor_id - Doctor UUID
+   * @param {string} payload.visit_id - Visit UUID
+   * @param {string} payload.queue_date - Date in YYYY-MM-DD format
+   * @param {string} payload.reason - Reason for skipping
+   * @returns {Promise<Object>} Skip response
+   */
+  static async skipPatient(payload) {
+    try {
+      const response = await apiClient.post('/agents/queue/skip', payload);
+      return response.data;
+    } catch (error) {
+      throw this._handleError(error);
+    }
+  }
+
+  /**
+   * Get queue status (doctor view)
+   * @param {Object} params
+   * @param {string} params.doctor_id - Doctor UUID
+   * @param {string} params.queue_date - Date in YYYY-MM-DD format
+   * @param {string} params.role - "doctor"
+   * @returns {Promise<Object>} Queue status
+   */
+  static async getQueueStatus(params) {
+    try {
+      const queryString = new URLSearchParams(params).toString();
+      const response = await apiClient.get(`/agents/queue/status?${queryString}`);
+      return response.data;
+    } catch (error) {
+      throw this._handleError(error);
+    }
+  }
+
+  /**
+   * Handle API errors
+   * @private
+   */
+  static _handleError(error) {
+    if (error.response) {
+      return {
+        message: error.response.data?.detail || error.response.data?.message || 'Server error occurred',
+        status: error.response.status,
+        data: error.response.data
+      };
+    } else if (error.request) {
+      return {
+        message: 'No response from server. Please check your connection.',
+        status: 0
+      };
+    } else {
+      return {
+        message: error.message || 'An unexpected error occurred',
+        status: -1
+      };
+    }
+  }
+}
+
 export default registrationService;
-export { QueueService };
+export { QueueService, DoctorService };

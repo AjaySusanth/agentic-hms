@@ -3,6 +3,7 @@ import RegistrationPage from './pages/RegistrationPage'
 import SuccessPage from './pages/SuccessPage'
 import QueuePage from "./pages/QueuePage";
 import DoctorPage from "./pages/DoctorPage";
+import DoctorLoginPage from "./pages/DoctorLoginPage";
 import Layout from "./components/Layout";
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
           <Route path="/" element={<RegistrationPage />} />
           <Route path="/queue" element={<QueuePage />} />
           <Route path="/success" element={<SuccessPage />} />
+          <Route path="/doctor-login" element={<DoctorLoginPage />} />
           <Route path="/doctor" element={<DoctorPage />} />
         </Routes>
       </Layout>
