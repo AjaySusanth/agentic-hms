@@ -9,6 +9,7 @@ from agents.doctor_assistance.state import (
 )
 from agents.doctor_assistance.queue_client import QueueAgentClient
 from services.consultation_service import ConsultationService
+from services.prescription_service import PrescriptionService
 
 QUEUE_AGENT_BASE_URL = os.getenv("QUEUE_AGENT_BASE_URL", "http://localhost:8000")
 
@@ -131,6 +132,37 @@ class DoctorAssistanceAgent(BaseAgent[DoctorAssistanceState]):
                 "message": "Consultation notes saved successfully.",
                 "consultation_id": str(consultation.id),
             }
+        
+        if action == "add_prescription":
+            medicine_name = input_data.get("medicine_name")
+
+            if not medicine_name:
+                return {
+                    "message": "medicine_name is required."
+                }
+
+            item = await PrescriptionService.add_item(
+                self.db,
+                visit_id=self.state.visit_id,
+                medicine_name=medicine_name,
+                dosage=input_data.get("dosage"),
+                frequency=input_data.get("frequency"),
+                duration_days=input_data.get("duration_days"),
+                instructions=input_data.get("instructions"),
+            )
+
+            self.state.prescriptions.append({
+                "medicine_name": item.medicine_name,
+                "dosage": item.dosage,
+                "frequency": item.frequency,
+                "duration_days": item.duration_days,
+                "instructions": item.instructions,
+            })
+
+            return {
+                "message": "Prescription item added.",
+                "medicine_name": item.medicine_name,
+            }
 
         if action == "end_consultation":
             # Check recursively called from QueueService
@@ -162,7 +194,8 @@ class DoctorAssistanceAgent(BaseAgent[DoctorAssistanceState]):
             "message": "Invalid action during consultation.",
             "allowed_actions": [
                 "save_notes",
-                "end_consultation",
+                "add_prescription",
+                "end_consultation"
             ],
         }
 
