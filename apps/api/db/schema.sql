@@ -1,9 +1,22 @@
--- Run schema.sql once on your DB
+
+-- Hospitals table
+CREATE TABLE hospitals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE,
+    location TEXT NOT NULL,
+    address TEXT NOT NULL,
+    contact_number TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
 
 CREATE TABLE departments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
-    description TEXT
+    description TEXT,
+    hospital_id UUID NOT NULL REFERENCES hospitals(id)
 );
 
 CREATE TABLE doctors (
@@ -11,7 +24,8 @@ CREATE TABLE doctors (
     name TEXT NOT NULL,
     department_id UUID NOT NULL REFERENCES departments(id),
     specialization TEXT,
-    is_available BOOLEAN DEFAULT true
+    is_available BOOLEAN DEFAULT true,
+    hospital_id UUID NOT NULL REFERENCES hospitals(id)
 );
 
 CREATE TABLE patients (
@@ -19,9 +33,12 @@ CREATE TABLE patients (
     user_id UUID,
     full_name TEXT NOT NULL,
     age INT,
-    contact_number TEXT UNIQUE NOT NULL,
-    abha_id TEXT UNIQUE,
-    created_at TIMESTAMPTZ DEFAULT now()
+    contact_number TEXT NOT NULL,
+    abha_id TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    hospital_id UUID NOT NULL REFERENCES hospitals(id),
+    CONSTRAINT uq_patient_phone_hospital UNIQUE (contact_number, hospital_id),
+    CONSTRAINT uq_patient_abha_hospital UNIQUE (abha_id, hospital_id)
 );
 
 
@@ -32,8 +49,21 @@ CREATE TABLE visits (
     doctor_id UUID NOT NULL REFERENCES doctors(id),
     symptoms_summary TEXT,
     status TEXT DEFAULT 'scheduled',
-    created_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    hospital_id UUID NOT NULL REFERENCES hospitals(id)
 );
+
+-- Insert a default hospital for migration
+INSERT INTO hospitals (id, name, code, location, address, contact_number, is_active)
+VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    'Default Hospital',
+    'DEFAULT',
+    'Default City',
+    '123 Default St',
+    '0000000000',
+    true
+) ON CONFLICT (code) DO NOTHING;
 
 
 
@@ -49,6 +79,7 @@ CREATE TABLE doctor_queues (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     doctor_id UUID NOT NULL,
+    hospital_id UUID NOT NULL REFERENCES hospitals(id),
     queue_date DATE NOT NULL,
 
     -- Shift definition (MVP: one shift per day)
@@ -80,6 +111,7 @@ CREATE TABLE queue_entries (
 
     queue_id UUID NOT NULL REFERENCES doctor_queues(id) ON DELETE CASCADE,
     visit_id UUID NOT NULL,
+    hospital_id UUID NOT NULL REFERENCES hospitals(id),
 
     token_number INT NOT NULL,
     position INT NOT NULL,
@@ -113,41 +145,44 @@ CREATE TABLE queue_entries (
 
 --dummy data
 
-INSERT INTO departments (id, name, description) VALUES
-(gen_random_uuid(), 'General Medicine', 'Common illnesses, fever, cold, general health'),
-(gen_random_uuid(), 'Cardiology', 'Heart-related conditions and chest pain'),
-(gen_random_uuid(), 'Orthopedics', 'Bone, joint, and muscle issues'),
-(gen_random_uuid(), 'Pediatrics', 'Healthcare for children under 18');
+INSERT INTO departments (id, name, description, hospital_id) VALUES
+(gen_random_uuid(), 'General Medicine', 'Common illnesses, fever, cold, general health', '00000000-0000-0000-0000-000000000000'),
+(gen_random_uuid(), 'Cardiology', 'Heart-related conditions and chest pain', '00000000-0000-0000-0000-000000000000'),
+(gen_random_uuid(), 'Orthopedics', 'Bone, joint, and muscle issues', '00000000-0000-0000-0000-000000000000'),
+(gen_random_uuid(), 'Pediatrics', 'Healthcare for children under 18', '00000000-0000-0000-0000-000000000000');
 
 
-INSERT INTO doctors (id, name, specialization, department_id, is_available)
+INSERT INTO doctors (id, name, specialization, department_id, is_available, hospital_id)
 SELECT
     gen_random_uuid(),
     'Dr. Alice Sharma',
     'Cardiologist',
     d.id,
-    true
+    true,
+    '00000000-0000-0000-0000-000000000000'
 FROM departments d
 WHERE d.name = 'Cardiology';
 
-INSERT INTO doctors (id, name, specialization, department_id, is_available)
+INSERT INTO doctors (id, name, specialization, department_id, is_available, hospital_id)
 SELECT
     gen_random_uuid(),
     'Dr. Bob Varma',
     'General Physician',
     d.id,
-    true
+    true,
+    '00000000-0000-0000-0000-000000000000'
 FROM departments d
 WHERE d.name = 'General Medicine';
 
-INSERT INTO doctors (id, name, specialization, department_id, is_available)
+INSERT INTO doctors (id, name, specialization, department_id, is_available, hospital_id)
 SELECT 
     gen_random_uuid(), 
     'Dr. Charlie Day', 
     'Orthopedic Surgeon', 
-    d.id,            -- This gets the ID from the departments table
-    true             -- Providing a value for is_available
-FROM departments d   -- This defines what "d" is
+    d.id,            
+    true,
+    '00000000-0000-0000-0000-000000000000'
+FROM departments d   
 WHERE d.name = 'Orthopedics';
 
 

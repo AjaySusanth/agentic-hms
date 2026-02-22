@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
 from models.visit import Visit
-
+from typing import Optional
 
 class VisitService:
 
@@ -13,6 +13,7 @@ class VisitService:
         patient_id: UUID,
         doctor_id: UUID,
         symptoms_summary: str | None,
+        hospital_id: Optional[str] = None,
     ) -> Visit:
         """
         Creates a visit for a patient with a doctor.
@@ -22,6 +23,7 @@ class VisitService:
             doctor_id=doctor_id,
             symptoms_summary=symptoms_summary,
             status="scheduled",
+            hospital_id=hospital_id,
         )
 
         db.add(visit)

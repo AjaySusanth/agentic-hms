@@ -26,6 +26,8 @@ class Department(Base):
         nullable=True,
     )
 
+    hospital_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+
     # Relationships
     doctors = relationship("Doctor", back_populates="department")
 

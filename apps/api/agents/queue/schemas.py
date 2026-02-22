@@ -8,6 +8,7 @@ class QueueIntakeRequest(BaseModel):
     visit_id: UUID
     patient_id: UUID
     doctor_id: UUID
+    hospital_id: UUID
     queue_date: date
 
 

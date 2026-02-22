@@ -18,6 +18,7 @@ async def handoff_to_queue_agent(payload: Dict[str, Any]) -> Dict[str, Any]:
                 "visit_id": str(payload["visit_id"]),
                 "patient_id": str(payload["patient_id"]),
                 "doctor_id": str(payload["doctor_id"]),
+                "hospital_id": str(payload["hospital_id"]),
                 "queue_date": payload["queue_date"].isoformat()
                 if isinstance(payload["queue_date"], date)
                 else payload["queue_date"],

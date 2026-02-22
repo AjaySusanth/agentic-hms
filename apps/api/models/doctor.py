@@ -25,6 +25,8 @@ class Doctor(Base):
         nullable=True,
     )
 
+    hospital_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+
     is_available: Mapped[bool] = mapped_column(
         Boolean,
         default=True,

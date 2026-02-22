@@ -22,6 +22,7 @@ class DoctorQueue(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     doctor_id = Column(UUID(as_uuid=True), nullable=False)
+    hospital_id = Column(UUID(as_uuid=True), nullable=False)
     queue_date = Column(Date, nullable=False)
 
     shift_start_time = Column(Time, nullable=False)

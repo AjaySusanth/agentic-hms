@@ -35,7 +35,6 @@ from services.llm.department_resolver import DepartmentResolverService
 CONFIDENCE_THRESHOLD = 0.75
 
 
-
 def classify_department_with_llm(symptoms: str, departments: Dict[str, str],age:int) -> Optional[str]:
     """
     Uses Groq LLM ONLY as a fallback classifier.
@@ -74,7 +73,6 @@ def classify_department_with_llm(symptoms: str, departments: Dict[str, str],age:
     result = response.choices[0].message.content.strip()
 
     return result if result in departments else None
-
 
 
 class RegistrationAgent(BaseAgent[RegistrationAgentState]):
@@ -173,6 +171,7 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
         patient = await PatientService.get_by_phone(
             self.db,
             self.state.phone_number,
+            hospital_id=self.state.hospital_id,
         )
 
         if patient:
@@ -189,8 +188,6 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
         self.transition_to(RegistrationStep.COLLECT_PATIENT_DETAILS)
         return {"message": "Please provide your full name and age."}
 
-    
-
     async def _handle_collect_patient_details(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         full_name = input_data.get("full_name")
         age = input_data.get("age")
@@ -203,6 +200,7 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
             full_name=full_name,
             age=age,
             contact_number=self.state.phone_number,
+            hospital_id=self.state.hospital_id,
         )
 
         self.update_state(
@@ -231,9 +229,10 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
         return await self.handle({})
 
     async def _handle_resolve_department(self, input_data: Dict[str, Any]):
-
-        # 0️⃣ Load departments ONCE
-        departments = await DepartmentService.list_all(self.db)
+        # 0️⃣ Load departments ONCE (scoped by hospital)
+        departments = await DepartmentService.list_all(
+            self.db, hospital_id=self.state.hospital_id
+        )
         dept_names = [d.name for d in departments]
 
         def _find_department_id(name: str):
@@ -315,11 +314,11 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
             "departments": dept_names,
         }
 
-
     async def _handle_select_doctor(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         doctors = await DoctorService.list_available_by_department(
             self.db,
             self.state.department_id,
+            hospital_id=self.state.hospital_id,
         )
 
         if not doctors:
@@ -363,12 +362,13 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
             patient_id=self.state.patient_id,
             doctor_id=self.state.doctor_id,
             symptoms_summary=self.state.symptoms_summary,
+            hospital_id=self.state.hospital_id,
         )
 
         self.update_state(
             visit_id=visit.id,
         )
-        
+
         print(
             f"Visit created - Visit ID: {visit.id} | Patient ID: {self.state.patient_id} | "
             f"Doctor ID: {self.state.doctor_id}"
@@ -395,11 +395,12 @@ class RegistrationAgent(BaseAgent[RegistrationAgentState]):
             "visit_id": self.state.visit_id,
             "patient_id": self.state.patient_id,
             "doctor_id": self.state.doctor_id,
+            "hospital_id": self.state.hospital_id,
             "queue_date": datetime.utcnow().date(),
         }
 
         result = await handoff_to_queue_agent(payload)
-        
+
         # Mark handoff as processed
         self.update_state(handoff_processed=True)
 
