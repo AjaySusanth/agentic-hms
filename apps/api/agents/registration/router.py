@@ -30,7 +30,8 @@ async def handle_registration_message(payload: AgentRequest, db: AsyncSession = 
         session_id = payload.session_id
     else:
         state = RegistrationAgentState(
-            step=RegistrationStep.COLLECT_PHONE
+            step=RegistrationStep.COLLECT_PHONE,
+            hospital_id=payload.hospital_id
         )
         session_id = await AgentSessionService.create(
             db,

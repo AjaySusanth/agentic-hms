@@ -16,6 +16,8 @@ class Visit(Base):
         default=uuid.uuid4,
     )
 
+    hospital_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+
     patient_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("patients.id"),

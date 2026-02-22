@@ -38,6 +38,7 @@ class QueueService:
                 # MVP: hardcoded shift (can later move to doctor table)
                 queue = DoctorQueue(
                     doctor_id=request.doctor_id,
+                    hospital_id=request.hospital_id,
                     queue_date=request.queue_date,
                     shift_start_time=datetime.strptime("09:00", "%H:%M").time(),
                     shift_end_time=datetime.strptime("17:00", "%H:%M").time(),
@@ -92,6 +93,7 @@ class QueueService:
             entry = QueueEntry(
                 queue_id=queue.id,
                 visit_id=request.visit_id,
+                hospital_id=request.hospital_id,
                 token_number=token_number,
                 position=token_number,
                 status="waiting",

@@ -25,6 +25,7 @@ class QueueEntry(Base):
     )
 
     visit_id = Column(UUID(as_uuid=True), nullable=False)
+    hospital_id = Column(UUID(as_uuid=True), nullable=False)
 
     token_number = Column(Integer, nullable=False)
     position = Column(Integer, nullable=False)

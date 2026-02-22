@@ -6,6 +6,7 @@ from uuid import UUID
 
 class AgentRequest(BaseModel):
     session_id: Optional[UUID] = None
+    hospital_id: Optional[UUID] = None
     input: Dict[str, Any]
     
 

@@ -1,10 +1,8 @@
 from enum import Enum
-
 from pydantic import BaseModel, Field
-from typing import Optional,List
+from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
-
 
 
 class RegistrationStep(str, Enum):
@@ -24,6 +22,9 @@ class RegistrationAgentState(BaseModel):
     step: RegistrationStep = RegistrationStep.COLLECT_PHONE
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # --- Hospital Context ---
+    hospital_id: Optional[UUID] = None
 
     # --- Patient Identification ---
     phone_number: Optional[str] = None
@@ -52,6 +53,6 @@ class RegistrationAgentState(BaseModel):
     doctor_id: Optional[UUID] = None
     doctor_name: Optional[str] = None
     visit_id: Optional[UUID] = None
-    
+
     # --- Handoff State ---
     handoff_processed: bool = False
