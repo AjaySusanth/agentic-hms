@@ -53,3 +53,9 @@ class HospitalService:
 
     async def get_by_id(self, hospital_id: uuid.UUID) -> Optional[Hospital]:
         return await self.db.get(Hospital, hospital_id)
+
+    async def get_by_code(self, code: str) -> Optional[Hospital]:
+        result = await self.db.execute(
+            select(Hospital).where(Hospital.code == code)
+        )
+        return result.scalar_one_or_none()

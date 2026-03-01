@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -11,11 +12,12 @@ class PatientService:
     async def get_by_phone(
         db: AsyncSession,
         phone_number: str,
-        hospital_id: Optional[str] = None,
+        hospital_id: UUID,
     ) -> Optional[Patient]:
-        stmt = select(Patient).where(Patient.contact_number == phone_number)
-        if hospital_id:
-            stmt = stmt.where(Patient.hospital_id == hospital_id)
+        stmt = select(Patient).where(
+            Patient.contact_number == phone_number,
+            Patient.hospital_id == hospital_id,
+        )
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -26,8 +28,8 @@ class PatientService:
         full_name: str,
         age: int,
         contact_number: str,
+        hospital_id: UUID,
         abha_id: Optional[str] = None,
-        hospital_id: Optional[str] = None,
     ) -> Patient:
         patient = Patient(
             full_name=full_name,

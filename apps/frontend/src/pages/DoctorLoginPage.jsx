@@ -9,6 +9,7 @@ const DoctorLoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const hospitalName = localStorage.getItem('hospital_name') || 'Hospital';
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -51,7 +52,7 @@ const DoctorLoginPage = () => {
             Doctor Login
           </h1>
           <p className="text-gray-500">
-            Enter your name to access the dashboard
+            {hospitalName} • Enter your name to access the dashboard
           </p>
         </div>
 

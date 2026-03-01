@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from uuid import UUID
 from datetime import datetime
+from typing import Optional
 
 
 class HospitalCreate(BaseModel):
@@ -9,6 +10,10 @@ class HospitalCreate(BaseModel):
     location: str
     address: str
     contact_number: str
+
+
+class HospitalLoginRequest(BaseModel):
+    code: str
 
 
 class HospitalOut(BaseModel):

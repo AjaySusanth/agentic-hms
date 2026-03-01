@@ -5,9 +5,24 @@ from db.session import get_db_session
 from models.hospital import Hospital
 from typing import List
 import uuid
-from schemas.hospital import HospitalOut, HospitalCreate
+from schemas.hospital import HospitalOut, HospitalCreate, HospitalLoginRequest
 
 router = APIRouter(prefix="/hospitals", tags=["hospitals"])
+
+
+@router.post("/login", response_model=HospitalOut)
+async def hospital_login(
+    request: HospitalLoginRequest,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Simple hospital login by code. Returns hospital details if found and active."""
+    service = HospitalService(db)
+    hospital = await service.get_by_code(request.code)
+    if not hospital:
+        raise HTTPException(status_code=404, detail="Hospital not found")
+    if not hospital.is_active:
+        raise HTTPException(status_code=403, detail="Hospital is inactive")
+    return hospital
 
 
 @router.post("", response_model=HospitalOut)

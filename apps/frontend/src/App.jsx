@@ -4,20 +4,46 @@ import SuccessPage from './pages/SuccessPage'
 import QueuePage from "./pages/QueuePage";
 import DoctorPage from "./pages/DoctorPage";
 import DoctorLoginPage from "./pages/DoctorLoginPage";
+import ChatbotPage from './pages/ChatbotPage';
+import HospitalLoginPage from './pages/HospitalLoginPage';
 import Layout from "./components/Layout";
+import HospitalGuard from "./components/HospitalGuard";
 
 function App() {
   return (
     <Router>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<RegistrationPage />} />
-          <Route path="/queue" element={<QueuePage />} />
-          <Route path="/success" element={<SuccessPage />} />
-          <Route path="/doctor-login" element={<DoctorLoginPage />} />
-          <Route path="/doctor" element={<DoctorPage />} />
-        </Routes>
-      </Layout>
+      <Routes>
+        {/* Public routes (no hospital login required) */}
+        <Route path="/login" element={<HospitalLoginPage />} />
+        <Route path="/chat" element={<ChatbotPage />} />
+
+        {/* Protected routes (behind hospital login + Layout) */}
+        <Route path="/" element={
+          <HospitalGuard>
+            <Layout><RegistrationPage /></Layout>
+          </HospitalGuard>
+        } />
+        <Route path="/queue" element={
+          <HospitalGuard>
+            <Layout><QueuePage /></Layout>
+          </HospitalGuard>
+        } />
+        <Route path="/success" element={
+          <HospitalGuard>
+            <Layout><SuccessPage /></Layout>
+          </HospitalGuard>
+        } />
+        <Route path="/doctor-login" element={
+          <HospitalGuard>
+            <Layout><DoctorLoginPage /></Layout>
+          </HospitalGuard>
+        } />
+        <Route path="/doctor" element={
+          <HospitalGuard>
+            <Layout><DoctorPage /></Layout>
+          </HospitalGuard>
+        } />
+      </Routes>
     </Router>
   );
 }
