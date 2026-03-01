@@ -4,6 +4,7 @@ import SuccessPage from './pages/SuccessPage'
 import QueuePage from "./pages/QueuePage";
 import DoctorPage from "./pages/DoctorPage";
 import DoctorLoginPage from "./pages/DoctorLoginPage";
+import ChatbotPage from './pages/ChatbotPage';
 import Layout from "./components/Layout";
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
           <Route path="/" element={<RegistrationPage />} />
           <Route path="/queue" element={<QueuePage />} />
           <Route path="/success" element={<SuccessPage />} />
+          <Route path="/chat" element={<ChatbotPage />} />
           <Route path="/doctor-login" element={<DoctorLoginPage />} />
           <Route path="/doctor" element={<DoctorPage />} />
         </Routes>

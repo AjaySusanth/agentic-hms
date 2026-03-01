@@ -1,16 +1,69 @@
 import os
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Literal
 from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
 
+PivotResult = Literal["continue", "exit", "pivot", "help"]
+
+
+async def should_pivot(
+    user_message: str, current_step: str, last_bot_message: str
+) -> PivotResult:
+    """
+    Uses Groq LLM to determine if the user wants to pivot from the current flow.
+
+    Returns one of:
+      - "continue": User is following the flow (e.g., providing data requested)
+      - "exit": User wants to stop or indicates they're finished
+      - "pivot": User changes topic or adds new symptoms
+      - "help": User asks a general question about a term/department
+    """
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+    prompt = f"""You are a pivot detector for a healthcare chatbot.
+
+Current chatbot step: {current_step}
+Last bot message: "{last_bot_message}"
+
+Classify the user's message into one of these intents:
+1. "continue" - User is responding to the bot's request, providing the expected data, or confirming.
+2. "exit" - User wants to stop, end the conversation, or says they're done/finished.
+3. "pivot" - User changes topic, introduces new symptoms, or asks about something unrelated to the current flow.
+4. "help" - User asks a general question about a medical term, department, or wants clarification.
+
+User message: "{user_message}"
+
+Respond ONLY with a single word (no JSON, no markdown): continue, exit, pivot, or help
+"""
+
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a pivot classifier. Respond with only one word.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.1,
+        max_tokens=10,
+    )
+
+    raw = response.choices[0].message.content.strip().lower()
+
+    if raw in ("continue", "exit", "pivot", "help"):
+        return raw
+
+    return "continue"
+
 
 async def detect_intent(user_message: str) -> Dict[str, Any]:
     """
     Uses Groq LLM to classify user intent from their message.
-    
+
     Returns:
         {
             "intent": "medical" | "hotel_booking" | "general_query",
@@ -46,7 +99,10 @@ Respond ONLY with valid JSON (no markdown):
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[
-            {"role": "system", "content": "You are a JSON-only intent classifier. Always return valid JSON."},
+            {
+                "role": "system",
+                "content": "You are a JSON-only intent classifier. Always return valid JSON.",
+            },
             {"role": "user", "content": prompt},
         ],
         temperature=0.1,

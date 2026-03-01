@@ -10,9 +10,10 @@ class ChatbotStep(str, Enum):
     COLLECT_SYMPTOMS = "collect_symptoms"
     DETECT_INTENT = "detect_intent"
     DISCOVER_HOSPITALS = "discover_hospitals"
+    CONFIRM_BOOKING = "confirm_booking"
     SELECT_HOSPITAL = "select_hospital"
-    PROXY_REGISTRATION = "proxy_registration"      # Forwarding to Registration Agent
-    EXTERNAL_HANDOFF = "external_handoff"           # For hotel booking, etc.
+    PROXY_REGISTRATION = "proxy_registration"  # Forwarding to Registration Agent
+    EXTERNAL_HANDOFF = "external_handoff"  # For hotel booking, etc.
     COMPLETED = "completed"
 
 
@@ -31,8 +32,8 @@ class ChatbotOrchestratorState(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # --- Intent Detection ---
-    detected_intent: Optional[str] = None           # "medical", "hotel_booking", "general_query"
-    department_hint: Optional[str] = None            # LLM-suggested department
+    detected_intent: Optional[str] = None  # "medical", "hotel_booking", "general_query"
+    department_hint: Optional[str] = None  # LLM-suggested department
     intent_confidence: Optional[float] = None
 
     # --- Symptoms ---
@@ -44,12 +45,17 @@ class ChatbotOrchestratorState(BaseModel):
     selected_hospital_name: Optional[str] = None
 
     # --- Proxy Mode (Registration Agent) ---
-    delegated_session_id: Optional[UUID] = None     # Registration agent session ID
-    registration_step: Optional[str] = None          # Current step of the delegated Registration Agent
+    delegated_session_id: Optional[UUID] = None  # Registration agent session ID
+    registration_step: Optional[str] = (
+        None  # Current step of the delegated Registration Agent
+    )
     proxy_phone_number: Optional[str] = None
 
     # --- External System ---
-    external_system: Optional[str] = None           # "hotel_booking", etc.
+    external_system: Optional[str] = None  # "hotel_booking", etc.
 
     # --- Conversation History ---
-    messages: List[Dict[str, str]] = []             # [{role: "user"/"bot", content: "..."}]
+    messages: List[Dict[str, str]] = []  # [{role: "user"/"bot", "content": "..."}]
+    last_bot_message: Optional[str] = (
+        None  # Last message sent by the bot (for pivot detection)
+    )

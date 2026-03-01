@@ -10,7 +10,7 @@ from agents.chatbot.state import (
     ChatbotStep,
     HospitalOption,
 )
-from agents.chatbot.intent_detector import detect_intent
+from agents.chatbot.intent_detector import detect_intent, should_pivot
 from agents.chatbot.hospital_client import HospitalClient
 
 from models.hospital import Hospital
@@ -38,6 +38,38 @@ class ChatbotOrchestratorAgent(BaseAgent):
     async def handle(self, user_input: Dict[str, Any]) -> Dict[str, Any]:
         """Main handler — delegates to the correct step."""
         step = self.state.step
+        user_message = user_input.get("message", "").strip()
+
+        # Pivot detection for applicable steps
+        if step not in (
+            ChatbotStep.GREETING,
+            ChatbotStep.DETECT_INTENT,
+            ChatbotStep.COMPLETED,
+            ChatbotStep.CONFIRM_BOOKING,
+        ):
+            pivot_result = await should_pivot(
+                user_message, step.value, self.state.last_bot_message or ""
+            )
+
+            if pivot_result == "exit":
+                self.state.step = ChatbotStep.COMPLETED
+                return self._reply("Thank you for using our service. Goodbye!")
+
+            if pivot_result == "pivot":
+                # Merge new symptoms with existing symptoms_raw
+                old_symptoms = self.state.symptoms_raw or ""
+                if old_symptoms:
+                    self.state.symptoms_raw = f"{old_symptoms} | {user_message}"
+                else:
+                    self.state.symptoms_raw = user_message
+                self.state.step = ChatbotStep.DETECT_INTENT
+                return await self._handle_detect_intent(user_input)
+
+            if pivot_result == "help":
+                # Provide help and stay on current step
+                return self._reply(
+                    f"I can help you with hospital booking. {self.state.last_bot_message or 'Please continue with your booking.'}"
+                )
 
         if step == ChatbotStep.GREETING:
             return await self._handle_greeting(user_input)
@@ -51,6 +83,9 @@ class ChatbotOrchestratorAgent(BaseAgent):
         elif step == ChatbotStep.DISCOVER_HOSPITALS:
             return await self._handle_discover_hospitals(user_input)
 
+        elif step == ChatbotStep.CONFIRM_BOOKING:
+            return await self._handle_confirm_booking(user_input)
+
         elif step == ChatbotStep.SELECT_HOSPITAL:
             return await self._handle_select_hospital(user_input)
 
@@ -58,7 +93,9 @@ class ChatbotOrchestratorAgent(BaseAgent):
             return await self._handle_proxy_registration(user_input)
 
         elif step == ChatbotStep.COMPLETED:
-            return self._reply("Your session is complete. Type 'hi' to start a new conversation.")
+            return self._reply(
+                "Your session is complete. Type 'hi' to start a new conversation."
+            )
 
         return self._reply("Something went wrong. Please try again.")
 
@@ -111,6 +148,7 @@ class ChatbotOrchestratorAgent(BaseAgent):
             )
 
         if self.state.detected_intent == "general_query":
+            self.state.step = ChatbotStep.COLLECT_SYMPTOMS
             return self._reply(
                 "I can help you find hospitals and book doctor appointments. "
                 "Could you describe any symptoms you're experiencing?"
@@ -155,27 +193,71 @@ class ChatbotOrchestratorAgent(BaseAgent):
                     hospital_name=hospital.name,
                     location=hospital.location,
                     doctors=[
-                        {"id": str(d.id), "name": d.name, "specialization": d.specialization}
+                        {
+                            "id": str(d.id),
+                            "name": d.name,
+                            "specialization": d.specialization,
+                        }
                         for d in doctors
                     ],
                 )
             )
 
         self.state.available_hospitals = options
-        self.state.step = ChatbotStep.SELECT_HOSPITAL
+        self.state.step = ChatbotStep.CONFIRM_BOOKING
 
         # Build display message
         dept_label = self.state.department_hint or "your concern"
-        msg = f"🏥 I found **{len(options)} hospital(s)** with {dept_label} services:\n\n"
+        msg = (
+            f"🏥 I found **{len(options)} hospital(s)** with {dept_label} services:\n\n"
+        )
 
         for i, opt in enumerate(options, 1):
-            doctor_names = ", ".join(d["name"] for d in opt.doctors) if opt.doctors else "Doctors available"
+            doctor_names = (
+                ", ".join(d["name"] for d in opt.doctors)
+                if opt.doctors
+                else "Doctors available"
+            )
             msg += f"**{i}. {opt.hospital_name}** ({opt.location})\n"
             msg += f"   Doctors: {doctor_names}\n\n"
 
-        msg += "Please reply with the **hospital number** (e.g., `1`) to proceed."
+        msg += (
+            "Would you like to proceed with booking at one of these hospitals? (yes/no)"
+        )
 
         return self._reply(msg)
+
+    # ──────────────────────────────────────────────
+    # STEP 4b: CONFIRM BOOKING
+    # ──────────────────────────────────────────────
+    async def _handle_confirm_booking(self, user_input: Dict) -> Dict:
+        """Ask user to confirm before showing hospital selection."""
+        message = user_input.get("message", "").strip().lower()
+
+        if message in ("yes", "y", "proceed", "ok", "continue"):
+            self.state.step = ChatbotStep.SELECT_HOSPITAL
+
+            options = self.state.available_hospitals
+            dept_label = self.state.department_hint or "your concern"
+            msg = f"🏥 Here are **{len(options)} hospital(s)** with {dept_label} services:\n\n"
+
+            for i, opt in enumerate(options, 1):
+                doctor_names = (
+                    ", ".join(d["name"] for d in opt.doctors)
+                    if opt.doctors
+                    else "Doctors available"
+                )
+                msg += f"**{i}. {opt.hospital_name}** ({opt.location})\n"
+                msg += f"   Doctors: {doctor_names}\n\n"
+
+            msg += "Please reply with the **hospital number** (e.g., `1`) to proceed."
+            return self._reply(msg)
+
+        elif message in ("no", "n", "stop", "cancel"):
+            self.state.step = ChatbotStep.COMPLETED
+            return self._reply("No problem. Thank you for using our service. Goodbye!")
+
+        return self._reply("Please reply with 'yes' to proceed or 'no' to cancel.")
 
     # ──────────────────────────────────────────────
     # STEP 5: SELECT HOSPITAL
@@ -233,7 +315,9 @@ class ChatbotOrchestratorAgent(BaseAgent):
                 reg_step = result.get("state", {}).get("step", "")
                 self.state.registration_step = reg_step
 
-                bot_message = result.get("response", {}).get("message", "Registration started.")
+                bot_message = result.get("response", {}).get(
+                    "message", "Registration started."
+                )
                 return self._reply(bot_message)
 
             except Exception as e:
@@ -289,12 +373,19 @@ class ChatbotOrchestratorAgent(BaseAgent):
                 if "doctors" in response_data:
                     doctors = response_data["doctors"]
                     doc_list = "\n".join(
-                        f"  {i+1}. **{d['name']}** ({d['specialization']})"
+                        f"  {i + 1}. **{d['name']}** ({d['specialization']})"
                         for i, d in enumerate(doctors)
                     )
                     display_message = f"{bot_message}\n\n{doc_list}\n\nReply with the doctor **number** to select."
                     # Store doctor list for mapping index -> ID
-                    self.state.messages.append({"role": "system", "content": str([{"id": d["id"], "name": d["name"]} for d in doctors])})
+                    self.state.messages.append(
+                        {
+                            "role": "system",
+                            "content": str(
+                                [{"id": d["id"], "name": d["name"]} for d in doctors]
+                            ),
+                        }
+                    )
 
                 return self._reply(display_message)
 
@@ -318,7 +409,10 @@ class ChatbotOrchestratorAgent(BaseAgent):
         if user_input.get("department"):
             return {"department_override": user_input["department"]}
         if user_input.get("confirm"):
-            return {"confirm": user_input["confirm"] == "true" or user_input["confirm"] is True}
+            return {
+                "confirm": user_input["confirm"] == "true"
+                or user_input["confirm"] is True
+            }
 
         reg_step = self.state.registration_step
 
@@ -329,6 +423,7 @@ class ChatbotOrchestratorAgent(BaseAgent):
         # COLLECT_PATIENT_DETAILS → parse name and age
         if reg_step == "collect_patient_details":
             import re
+
             match = re.match(r"^(.+?)[,\s]+(\d{1,3})$", message.strip())
             if match:
                 return {"full_name": match.group(1).strip(), "age": int(match.group(2))}
@@ -349,6 +444,7 @@ class ChatbotOrchestratorAgent(BaseAgent):
                 for msg in reversed(self.state.messages):
                     if msg.get("role") == "system":
                         import ast
+
                         doctors = ast.literal_eval(msg["content"])
                         if 1 <= choice <= len(doctors):
                             return {"doctor_id": doctors[choice - 1]["id"]}
@@ -389,6 +485,7 @@ class ChatbotOrchestratorAgent(BaseAgent):
 
     def _reply(self, message: str) -> Dict[str, Any]:
         """Build a standard reply and track in conversation history."""
+        self.state.last_bot_message = message
         self.state.messages.append({"role": "bot", "content": message})
         return {
             "message": message,
@@ -400,6 +497,8 @@ class ChatbotOrchestratorAgent(BaseAgent):
                 "available_hospitals": [
                     {"name": h.hospital_name, "location": h.location}
                     for h in self.state.available_hospitals
-                ] if self.state.available_hospitals else None,
+                ]
+                if self.state.available_hospitals
+                else None,
             },
         }

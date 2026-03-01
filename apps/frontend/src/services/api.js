@@ -558,5 +558,66 @@ class DoctorService {
   }
 }
 
+/**
+ * Chatbot Orchestrator API Service
+ */
+class ChatbotService {
+  /**
+   * Start a new chatbot session
+   * @returns {Promise<Object>} Chat session response
+   */
+  static async startSession() {
+    try {
+      const response = await apiClient.post('/chatbot/session');
+      return response.data;
+    } catch (error) {
+      throw this._handleError(error);
+    }
+  }
+
+  /**
+   * Send a message to an existing chatbot session
+   * @param {string} sessionId - Chat session UUID
+   * @param {Object} payload - Message payload
+   * @param {string} payload.message - User message
+   * @param {string} [payload.doctor_id] - Optional doctor id
+   * @param {string} [payload.department] - Optional department override
+   * @param {string} [payload.confirm] - Optional confirm flag as string
+   * @returns {Promise<Object>} Chat response
+   */
+  static async sendMessage(sessionId, payload) {
+    try {
+      const response = await apiClient.post(`/chatbot/session/${sessionId}/message`, payload);
+      return response.data;
+    } catch (error) {
+      throw this._handleError(error);
+    }
+  }
+
+  /**
+   * Handle API errors
+   * @private
+   */
+  static _handleError(error) {
+    if (error.response) {
+      return {
+        message: error.response.data?.detail || error.response.data?.message || 'Server error occurred',
+        status: error.response.status,
+        data: error.response.data
+      };
+    } else if (error.request) {
+      return {
+        message: 'No response from server. Please check your connection.',
+        status: 0
+      };
+    } else {
+      return {
+        message: error.message || 'An unexpected error occurred',
+        status: -1
+      };
+    }
+  }
+}
+
 export default registrationService;
-export { QueueService, DoctorService };
+export { QueueService, DoctorService, ChatbotService };
