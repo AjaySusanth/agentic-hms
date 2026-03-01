@@ -38,6 +38,15 @@
   - [x] Test: Mid-flow exit ("No thanks, goodbye")
   - [x] Test: Mid-flow pivot ("Actually my ear hurts too")
   - [x] Test: Mid-flow help ("What is Cardiology?")
+## Phase 2.6: Hospital Login & Scoped Frontend ✅
+- [x] Fix `PatientService.get_by_phone` crash (hospital_id now required)
+- [x] Add `POST /hospitals/login` endpoint (code-based login)
+- [x] Scope Doctor Login by `hospital_id`
+- [x] Create `HospitalLoginPage` (dropdown → localStorage)
+- [x] Add `HospitalGuard` route protection (redirects to `/login`)
+- [x] Update `api.js` — all calls send `hospital_id` from localStorage
+- [x] Update `Layout` header with hospital name + Switch Hospital button
+- [x] **STOP: Verify hospital-scoped flows via browser**
 
 ## Phase 3: Web Chatbot Frontend
 - [ ] Create `ChatbotPage` UI component with message thread

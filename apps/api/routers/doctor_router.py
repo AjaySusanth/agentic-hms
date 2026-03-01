@@ -13,7 +13,8 @@ router = APIRouter(prefix="/doctors", tags=["Doctors"])
 
 
 class DoctorLoginRequest(BaseModel):
-    name: str  # Simplified login - just using name for MVP
+    name: str
+    hospital_id: UUID  # Scoped to logged-in hospital
 
 
 class DoctorLoginResponse(BaseModel):
@@ -21,6 +22,7 @@ class DoctorLoginResponse(BaseModel):
     name: str
     specialization: Optional[str]
     department_name: Optional[str]
+    hospital_id: UUID
     is_available: bool
 
 
@@ -34,10 +36,13 @@ async def doctor_login(
     In production, this would use proper authentication
     """
     try:
-        # Find doctor by name (case-insensitive partial match)
+        # Find doctor by name scoped to hospital (case-insensitive partial match)
         result = await db.execute(
             select(Doctor)
-            .where(Doctor.name.ilike(f"%{request.name}%"))
+            .where(
+                Doctor.name.ilike(f"%{request.name}%"),
+                Doctor.hospital_id == request.hospital_id,
+            )
             .limit(1)
         )
         doctor = result.scalar_one_or_none()
@@ -60,6 +65,7 @@ async def doctor_login(
             name=doctor.name,
             specialization=doctor.specialization,
             department_name=department_name,
+            hospital_id=doctor.hospital_id,
             is_available=doctor.is_available,
         )
 
