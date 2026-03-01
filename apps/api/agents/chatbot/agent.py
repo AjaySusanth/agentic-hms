@@ -348,10 +348,30 @@ class ChatbotOrchestratorAgent(BaseAgent):
                 # Check if registration is complete
                 if current_step == "handoff_complete":
                     self.state.step = ChatbotStep.COMPLETED
+
+                    # Extract queue info for tracking link
+                    queue_status = response_data.get("queue_status", {})
+                    token_number = queue_status.get("token_number", "")
+                    visit_id = result.get("state", {}).get("visit_id", "")
+                    doctor_id = result.get("state", {}).get("doctor_id", "")
+                    doctor_name = result.get("state", {}).get("doctor_name", "")
+                    department = result.get("state", {}).get("department_final", "")
+
+                    # Build queue tracking link
+                    tracking_url = (
+                        f"/queue?visit_id={visit_id}"
+                        f"&doctor_id={doctor_id}"
+                        f"&token={token_number}"
+                        f"&doctor_name={doctor_name}"
+                        f"&department={department}"
+                    )
+
                     return self._reply(
                         f"{bot_message}\n\n"
                         "🎉 Your registration is complete! "
-                        f"You're registered at **{self.state.selected_hospital_name}**."
+                        f"You're registered at **{self.state.selected_hospital_name}**.\n\n"
+                        f"🎫 **Token #{token_number}**\n"
+                        f"📋 [Track your queue live]({tracking_url})"
                     )
 
                 # Enrich message with extra data from response

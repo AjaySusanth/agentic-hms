@@ -22,8 +22,17 @@ const QueuePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Queue data from registration
-  const queueData = location.state || {};
+  // Support both React Router state (portal) and URL query params (chatbot link)
+  const searchParams = new URLSearchParams(location.search);
+  const queueData = location.state || {
+    tokenNumber: searchParams.get("token") ? parseInt(searchParams.get("token")) : null,
+    visitId: searchParams.get("visit_id"),
+    doctorId: searchParams.get("doctor_id"),
+    queueDate: searchParams.get("queue_date") || new Date().toISOString().split("T")[0],
+    patientName: searchParams.get("patient_name") || "Patient",
+    department: searchParams.get("department") || "",
+    doctorName: searchParams.get("doctor_name") || "",
+  };
 
   // State
   const [queueStatus, setQueueStatus] = useState(null);

@@ -227,7 +227,25 @@ const ChatbotPage = () => {
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
                     {message.role === 'user' ? 'You' : 'Assistant'}
                   </p>
-                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{message.content}</p>
+                  <div className="text-sm text-gray-800 whitespace-pre-wrap">
+                    {message.content.split(/(\[.+?\]\(.+?\))/).map((part, i) => {
+                      const linkMatch = part.match(/\[(.+?)\]\((.+?)\)/);
+                      if (linkMatch) {
+                        return (
+                          <a
+                            key={i}
+                            href={linkMatch[2]}
+                            className="text-primary-600 hover:underline font-medium break-all"
+                            target={linkMatch[2].startsWith('http') ? '_blank' : '_self'}
+                            rel="noopener noreferrer"
+                          >
+                            {linkMatch[1]}
+                          </a>
+                        );
+                      }
+                      return part;
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
