@@ -1,0 +1,32 @@
+# ──────────────────────────────────────────────────────
+# Tasty Bites Restaurant — Integration Config
+# ──────────────────────────────────────────────────────
+# This file connects the restaurant_reservation template
+# to the Tasty Bites API. No Python code needed.
+# ──────────────────────────────────────────────────────
+
+service_name: "Tasty Bites Restaurant"
+service_type: "restaurant_reservation"       # ← picks the workflow template
+base_url: "http://mock-restaurant:8001/api"
+
+auth:
+  type: "none"                               # Mock API needs no auth
+
+# Maps our standard field names → their API's field names
+field_mappings:
+  reservation_date: "date"
+  reservation_time: "time"
+  party_size: "party_size"
+  guest_name: "guest_name"
+  phone: "phone"
+  selected_table_id: "table_id"
+
+# Named actions → HTTP method + path
+endpoints:
+  search_tables: "GET /tables/available"
+  create_reservation: "POST /reservations"
+  get_reservation: "GET /reservations/{id}"
+  cancel_reservation: "DELETE /reservations/{id}"
+
+# No FAQ documents for this demo
+rag_documents: []

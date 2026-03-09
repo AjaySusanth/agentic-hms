@@ -56,6 +56,17 @@ services:
       - VITE_PROXY_TARGET=http://backend:8000
     networks:
       - hms-network
+  mock-restaurant:
+    build:
+      context: ./apps/mock-restaurant
+      dockerfile: Dockerfile
+    container_name: mock-restaurant
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./apps/mock-restaurant:/app
+    networks:
+      - hms-network
 
 volumes:
   postgres-data:

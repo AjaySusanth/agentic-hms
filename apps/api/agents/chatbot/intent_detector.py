@@ -78,8 +78,9 @@ async def detect_intent(user_message: str) -> Dict[str, Any]:
 
 Classify the user's message into one of these intents:
 1. "medical" - The user needs medical help, wants to see a doctor, has symptoms, or wants to book an appointment.
-2. "hotel_booking" - The user needs accommodation/hotel near a hospital.
-3. "general_query" - General questions about hospitals, directions, timings, etc.
+2. "restaurant_reservation" - The user wants to book a table, reserve a seat, or dine at a restaurant.
+3. "hotel_booking" - The user needs accommodation/hotel near a hospital.
+4. "general_query" - General questions about hospitals, directions, timings, etc.
 
 Also, if the intent is "medical", try to suggest a likely medical department:
 - General Medicine (fever, cold, general health)

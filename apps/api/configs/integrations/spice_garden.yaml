@@ -1,0 +1,30 @@
+# ──────────────────────────────────────────────────────
+# Spice Garden Restaurant — Integration Config
+# ──────────────────────────────────────────────────────
+# Second restaurant config — proves ZERO CODE needed to
+# onboard a new service. Just drop this YAML file.
+# ──────────────────────────────────────────────────────
+
+service_name: "Spice Garden"
+service_type: "restaurant_reservation"       # ← same template
+base_url: "http://mock-restaurant:8001/api"          # ← same mock API for demo
+
+auth:
+  type: "none"
+
+# Different field mappings to show normalization in action
+field_mappings:
+  reservation_date: "date"
+  reservation_time: "time"
+  party_size: "party_size"
+  guest_name: "guest_name"
+  phone: "phone"
+  selected_table_id: "table_id"
+
+endpoints:
+  search_tables: "GET /tables/available"
+  create_reservation: "POST /reservations"
+  get_reservation: "GET /reservations/{id}"
+  cancel_reservation: "DELETE /reservations/{id}"
+
+rag_documents: []

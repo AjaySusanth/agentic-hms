@@ -13,6 +13,8 @@ class ChatbotStep(str, Enum):
     CONFIRM_BOOKING = "confirm_booking"
     SELECT_HOSPITAL = "select_hospital"
     PROXY_REGISTRATION = "proxy_registration"  # Forwarding to Registration Agent
+    DISCOVER_SERVICES = "discover_services"    # Finding template-based services
+    TEMPLATE_ENGINE = "template_engine"        # Delegated to TemplateEngine
     EXTERNAL_HANDOFF = "external_handoff"  # For hotel booking, etc.
     COMPLETED = "completed"
 
@@ -53,6 +55,10 @@ class ChatbotOrchestratorState(BaseModel):
 
     # --- External System ---
     external_system: Optional[str] = None  # "hotel_booking", etc.
+
+    # --- Template Engine (Option B) ---
+    template_service_name: Optional[str] = None   # Which config is active, e.g. "Tasty Bites Restaurant"
+    template_state: Optional[Dict[str, Any]] = None  # Serialized TemplateWorkflowState
 
     # --- Conversation History ---
     messages: List[Dict[str, str]] = []  # [{role: "user"/"bot", "content": "..."}]

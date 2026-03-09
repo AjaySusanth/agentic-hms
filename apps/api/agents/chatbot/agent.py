@@ -13,11 +13,26 @@ from agents.chatbot.state import (
 from agents.chatbot.intent_detector import detect_intent, should_pivot
 from agents.chatbot.hospital_client import HospitalClient
 
+# Template Engine imports (Option B)
+from agents.templates.config_loader import ConfigLoader
+from agents.templates.engine import TemplateEngine
+from agents.templates.state import TemplateWorkflowState
+
 from models.hospital import Hospital
 from models.department import Department
 from models.doctor import Doctor
 
 from services.hospital_service import HospitalService
+
+# Template registry: maps service_type → template definition
+from agents.templates.definitions.restaurant_reservation import RESTAURANT_RESERVATION_TEMPLATE
+
+TEMPLATE_REGISTRY = {
+    "restaurant_reservation": RESTAURANT_RESERVATION_TEMPLATE,
+}
+
+# Global config loader instance
+_config_loader = ConfigLoader()
 
 
 class ChatbotOrchestratorAgent(BaseAgent):
@@ -92,6 +107,12 @@ class ChatbotOrchestratorAgent(BaseAgent):
         elif step == ChatbotStep.PROXY_REGISTRATION:
             return await self._handle_proxy_registration(user_input)
 
+        elif step == ChatbotStep.DISCOVER_SERVICES:
+            return await self._handle_discover_services(user_input)
+
+        elif step == ChatbotStep.TEMPLATE_ENGINE:
+            return await self._handle_template_engine(user_input)
+
         elif step == ChatbotStep.COMPLETED:
             return self._reply(
                 "Your session is complete. Type 'hi' to start a new conversation."
@@ -146,6 +167,11 @@ class ChatbotOrchestratorAgent(BaseAgent):
                 "🏨 It seems like you need hotel accommodation. "
                 "This feature is coming soon! Please contact the hospital directly for now."
             )
+
+        # Check if the intent has a template-based integration
+        if self.state.detected_intent in TEMPLATE_REGISTRY:
+            self.state.step = ChatbotStep.DISCOVER_SERVICES
+            return await self._handle_discover_services(user_input)
 
         if self.state.detected_intent == "general_query":
             self.state.step = ChatbotStep.COLLECT_SYMPTOMS
@@ -414,6 +440,111 @@ class ChatbotOrchestratorAgent(BaseAgent):
                 return self._reply(
                     "Sorry, there was an error processing your input. Please try again."
                 )
+
+    # ──────────────────────────────────────────────
+    # STEP T1: DISCOVER SERVICES (Template-based)
+    # ──────────────────────────────────────────────
+    async def _handle_discover_services(self, user_input: Dict) -> Dict:
+        """
+        Find all YAML configs matching the detected intent (service_type).
+        If one: auto-select. If multiple: present list.
+        """
+        service_type = self.state.detected_intent
+        configs = _config_loader.get_by_type(service_type)
+
+        if not configs:
+            return self._reply(
+                "Sorry, this service isn't configured yet. Please try again later."
+            )
+
+        # Check if user already said a specific service name
+        user_message = user_input.get("message", "").lower()
+        for config in configs:
+            if config.service_name.lower() in user_message:
+                # Direct match — skip to template engine
+                return self._start_template_session(config)
+
+        # If user is selecting from a list (returning to this step)
+        if self.state.step == ChatbotStep.DISCOVER_SERVICES and user_message:
+            try:
+                choice = int(user_message)
+                if 1 <= choice <= len(configs):
+                    return self._start_template_session(configs[choice - 1])
+            except (ValueError, TypeError):
+                pass
+
+        if len(configs) == 1:
+            # Only one service — auto-select
+            return self._start_template_session(configs[0])
+
+        # Multiple services — let user pick
+        self.state.step = ChatbotStep.DISCOVER_SERVICES
+        msg = f"I found **{len(configs)}** options:\n\n"
+        for i, config in enumerate(configs, 1):
+            msg += f"  **{i}. {config.service_name}**\n"
+        msg += "\nWhich one would you like? (Enter the number)"
+        return self._reply(msg)
+
+    def _start_template_session(self, config) -> Dict:
+        """Initialize a new template engine session for a selected service."""
+        template = TEMPLATE_REGISTRY.get(config.service_type)
+        if not template:
+            return self._reply("Sorry, this service template is not available.")
+
+        # Create the template workflow state
+        first_step = template.get_first_step()
+        tw_state = TemplateWorkflowState(
+            service_type=config.service_type,
+            service_name=config.service_name,
+            current_step_id=first_step.id,
+        )
+
+        # Store in orchestrator state
+        self.state.template_service_name = config.service_name
+        self.state.template_state = tw_state.model_dump()
+        self.state.step = ChatbotStep.TEMPLATE_ENGINE
+
+        # Show the first step's prompt
+        prompt = first_step.prompt or "Let's get started!"
+        return self._reply(
+            f"Great! Let's book at **{config.service_name}**. 🍽️\n\n{prompt}"
+        )
+
+    # ──────────────────────────────────────────────
+    # STEP T2: TEMPLATE ENGINE (run workflow)
+    # ──────────────────────────────────────────────
+    async def _handle_template_engine(self, user_input: Dict) -> Dict:
+        """
+        Delegate user input to the TemplateEngine.
+        Loads the template + config, restores state, processes, saves state.
+        """
+        service_name = self.state.template_service_name
+        if not service_name:
+            return self._reply("Session error: no service selected.")
+
+        config = _config_loader.load(service_name)
+        if not config:
+            return self._reply(f"Configuration for '{service_name}' not found.")
+
+        template = TEMPLATE_REGISTRY.get(config.service_type)
+        if not template:
+            return self._reply(f"Template for '{config.service_type}' not found.")
+
+        # Restore the template workflow state
+        tw_state = TemplateWorkflowState(**self.state.template_state)
+
+        # Run the template engine
+        engine = TemplateEngine(template, config, tw_state)
+        result = await engine.handle(user_input)
+
+        # Save the updated template state back
+        self.state.template_state = engine.state.model_dump()
+
+        # Check if template workflow is complete
+        if engine.state.step == "completed":
+            self.state.step = ChatbotStep.COMPLETED
+
+        return self._reply(result["message"])
 
     # ──────────────────────────────────────────────
     # HELPERS
